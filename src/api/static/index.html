@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResearchAgent</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0f1e;
+      --bg2:       #111827;
+      --bg3:       #1e293b;
+      --bg4:       #273549;
+      --border:    #1e293b;
+      --border2:   #334155;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --text3:     #64748b;
+      --accent:    #6366f1;
+      --accent2:   #4f46e5;
+      --green:     #22c55e;
+      --green-bg:  #14532d;
+      --yellow:    #fbbf24;
+      --yellow-bg: #78350f;
+      --blue:      #60a5fa;
+      --blue-bg:   #1e3a5f;
+      --red:       #f87171;
+      --red-bg:    #4c1d1d;
+      --purple:    #a5b4fc;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 0 20px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg2);
+      flex-shrink: 0;
+    }
+    .header-logo { display: flex; align-items: center; gap: 10px; }
+    .header-logo svg { width: 22px; height: 22px; color: var(--accent); }
+    .header-logo h1 { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .header-badges { display: flex; gap: 6px; margin-left: 4px; }
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      color: var(--text3);
+      background: var(--bg3);
+    }
+    .badge.model { color: var(--purple); border-color: var(--accent); }
+    .header-status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text3); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+    /* ── LAYOUT ── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── LEFT PANEL ── */
+    .panel-left {
+      width: 260px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--bg2);
+      flex-shrink: 0;
+    }
+    .panel-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
+
+    textarea#query {
+      width: 100%;
+      height: 96px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+    textarea#query::placeholder { color: var(--text3); }
+    textarea#query:focus { border-color: var(--accent); }
+
+    .char-count { font-size: 0.65rem; color: var(--text3); text-align: right; margin-top: 4px; }
+
+    .btn-primary {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
+    .btn-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    .btn-primary.loading .btn-spinner { display: block; }
+    .btn-primary.loading .btn-text::after { content: '...'; }
+
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .sessions-empty {
+      font-size: 0.78rem;
+      color: var(--text3);
+      text-align: center;
+      padding: 20px 0;
+      line-height: 1.6;
+    }
+    .session-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.76rem;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: var(--bg3);
+      cursor: pointer;
+      color: var(--text2);
+      margin-bottom: 4px;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .session-item:hover { background: var(--bg4); border-color: var(--border2); }
+    .session-item .sid { font-family: monospace; color: var(--accent); font-size: 0.7rem; }
+    .session-item .sdate { color: var(--text3); font-size: 0.68rem; margin-left: auto; }
+
+    /* ── CENTER PANEL ── */
+    .panel-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    /* Graph DAG */
+    .graph-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .graph-dag {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .dag-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dag-row.parallel {
+      justify-content: flex-start;
+      padding-left: 32px;
+      gap: 6px;
+    }
+    .dag-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .dag-line { width: 1px; height: 8px; background: var(--border2); margin: 0 auto; }
+    .dag-branch {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      position: relative;
+    }
+    .dag-branch::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 12px;
+      right: 12px;
+      height: 1px;
+      background: var(--border2);
+    }
+
+    .node-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--bg3);
+      color: var(--text3);
+      border: 1px solid var(--border2);
+      transition: all 0.25s;
+      white-space: nowrap;
+      cursor: default;
+      position: relative;
+    }
+    .node-pill .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--text3);
+      flex-shrink: 0;
+    }
+
+    .node-pill.running {
+      background: var(--yellow-bg);
+      color: var(--yellow);
+      border-color: #d97706;
+      box-shadow: 0 0 10px rgba(251,191,36,0.2);
+    }
+    .node-pill.running .dot { background: var(--yellow); animation: blink 0.8s ease-in-out infinite; }
+
+    .node-pill.done {
+      background: var(--green-bg);
+      color: var(--green);
+      border-color: #16a34a;
+    }
+    .node-pill.done .dot { background: var(--green); }
+
+    .node-pill.waiting {
+      background: #312e81;
+      color: var(--purple);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px rgba(99,102,241,0.3);
+    }
+    .node-pill.waiting .dot { background: var(--purple); animation: blink 1.2s ease-in-out infinite; }
+
+    .node-pill.parallel-tag { opacity: 0.85; }
+
+    .dag-arrow { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; }
+    .dag-loop-label { font-size: 0.6rem; color: var(--text3); font-style: italic; margin-left: 4px; }
+
+    /* Event log */
+    .log-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .event-log {
+      flex: 1;
+      background: #060c18;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Cascadia Code', monospace;
+      font-size: 0.73rem;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .log-entry { color: var(--text3); }
+    .log-entry .ts { color: #334155; margin-right: 6px; }
+    .log-entry.info .ts { color: #334155; }
+    .log-entry.running { color: var(--yellow); }
+    .log-entry.done { color: var(--green); }
+    .log-entry.error { color: var(--red); }
+    .log-entry.waiting { color: var(--purple); }
+    .log-empty { color: var(--text3); font-style: italic; }
+
+    /* ── RIGHT PANEL ── */
+    .panel-right {
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg2);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .right-top {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      max-height: 220px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .right-bottom {
+      flex: 1;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .plan-empty, .report-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      color: var(--text3);
+      font-size: 0.78rem;
+      text-align: center;
+      opacity: 0.7;
+    }
+    .plan-empty svg, .report-empty svg { width: 28px; height: 28px; opacity: 0.4; }
+
+    #plan-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+    #plan-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text2);
+      padding: 6px 10px;
+      background: var(--bg3);
+      border-left: 2px solid var(--accent);
+      border-radius: 4px;
+      line-height: 1.4;
+    }
+    #plan-list li .num {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    #report-container {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+    #report-container h1 { font-size: 1rem; color: var(--purple); margin: 12px 0 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    #report-container h2 { font-size: 0.88rem; color: var(--purple); margin: 10px 0 5px; }
+    #report-container h3 { font-size: 0.82rem; color: var(--blue); margin: 8px 0 4px; }
+    #report-container p { color: var(--text2); margin-bottom: 8px; }
+    #report-container ul, #report-container ol { color: var(--text2); padding-left: 18px; margin-bottom: 8px; }
+    #report-container li { margin-bottom: 3px; }
+    #report-container strong { color: var(--text); }
+    #report-container code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; color: var(--green); }
+    #report-container hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+    /* quality bar */
+    .quality-bar-wrap { margin-top: 8px; }
+    .quality-bar-label { font-size: 0.68rem; color: var(--text3); margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .quality-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .quality-bar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.5s ease; }
+    .quality-bar-fill.low { background: var(--red); }
+    .quality-bar-fill.mid { background: var(--yellow); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--accent);
+      border-radius: 14px;
+      padding: 24px;
+      width: 580px;
+      max-width: 95vw;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.2);
+    }
+    .modal-header { display: flex; align-items: center; gap: 10px; }
+    .modal-icon { width: 32px; height: 32px; border-radius: 8px; background: #312e81; display: flex; align-items: center; justify-content: center; }
+    .modal h2 { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .modal-sub { font-size: 0.78rem; color: var(--text3); margin-top: 2px; }
+    #synthesis-preview {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.75rem;
+      color: var(--text2);
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #human-comment {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      resize: vertical;
+      min-height: 72px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    #human-comment:focus { border-color: var(--accent); }
+    #human-comment::placeholder { color: var(--text3); }
+    .modal-actions { display: flex; gap: 8px; }
+    .modal-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8rem;
+      transition: opacity 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .modal-btn:hover { opacity: 0.85; }
+    .modal-btn:active { transform: scale(0.97); }
+    .btn-approve { background: var(--green-bg); color: var(--green); border: 1px solid #16a34a; }
+    .btn-edit    { background: var(--blue-bg);  color: var(--blue);  border: 1px solid #3b82f6; }
+    .btn-reject  { background: var(--red-bg);   color: var(--red);   border: 1px solid #ef4444; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes spin  { to { transform: rotate(360deg); } }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/>
+    </svg>
+    <h1>ResearchAgent</h1>
+  </div>
+  <div class="header-badges">
+    <span class="badge">LangGraph</span>
+    <span class="badge">Ollama local</span>
+    <span class="badge model" id="badge-model">cargando...</span>
+  </div>
+  <div class="header-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">API activa</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel-left">
+    <div class="panel-section">
+      <div class="section-label">Nueva investigación</div>
+      <textarea id="query" placeholder="¿Sobre qué quieres investigar? Sé específico para mejores resultados." maxlength="500"></textarea>
+      <div class="char-count"><span id="char-count">0</span>/500</div>
+      <button class="btn-primary" id="btn-start" onclick="startResearch()">
+        <div class="btn-spinner"></div>
+        <span class="btn-text">Iniciar Investigación</span>
+      </button>
+    </div>
+    <div class="panel-section" style="flex:1; overflow-y:auto;">
+      <div class="section-label">Sesiones anteriores</div>
+      <div id="sessions-list">
+        <div class="sessions-empty">
+          Sin sesiones aún.<br>Inicia una investigación para verla aquí.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div class="panel-center">
+
+    <!-- Graph DAG -->
+    <div class="graph-section">
+      <div class="section-label">Flujo del grafo</div>
+      <div class="graph-dag" id="graph-dag">
+
+        <!-- Row 1: plan_research -->
+        <div class="dag-row">
+          <div class="node-pill" id="node-plan_research"><div class="dot"></div>plan research</div>
+          <span class="dag-arrow">↓</span>
+        </div>
+
+        <!-- Row 2: parallel searches -->
+        <div class="dag-row parallel">
+          <div class="node-pill parallel-tag" id="node-search_web"><div class="dot"></div>search web</div>
+          <div class="node-pill parallel-tag" id="node-search_chromadb"><div class="dot"></div>chromadb</div>
+          <div class="node-pill parallel-tag" id="node-search_arxiv"><div class="dot"></div>arxiv</div>
+          <span class="dag-loop-label">fan-out paralelo</span>
+        </div>
+
+        <!-- Row 3: gather + evaluate -->
+        <div class="dag-row">
+          <span class="dag-arrow" style="padding-left:32px">↓</span>
+        </div>
+        <div class="dag-row">
+          <div class="node-pill" id="node-gather_results"><div class="dot"></div>gather results</div>
+          <span class="dag-arrow">→</span>
+          <div class="node-pill" id="node-evaluate_quality"><div class="dot"></div>evaluate quality</div>
+          <span class="dag-arrow">⟳</span>
+          <div class="node-pill" id="node-refine_query" style="opacity:0.75"><div class="dot"></div>refine query</div>
+          <span class="dag-loop-label">loop ×3</span>
+        </div>
+
+        <!-- Row 4: synthesize + critique -->
+        <div class="dag-row" style="margin-top:2px">
+          <div class="node-pill" id="node-synthesize"><div class="dot"></div>synthesize</div>
+          <span class="dag-arrow">→</span>
+          <div class="node-pill" id="node-self_critique"><div class="dot"></div>self critique</div>
+          <span class="dag-arrow">⟳</span>
+          <div class="node-pill" id="node-rewrite" style="opacity:0.75"><div class="dot"></div>rewrite</div>
+          <span class="dag-loop-label">loop ×3</span>
+        </div>
+
+        <!-- Row 5: human + report -->
+        <div class="dag-row" style="margin-top:2px">
+          <div class="node-pill" id="node-human_checkpoint"><div class="dot"></div>⏸ human checkpoint</div>
+          <span class="dag-arrow">→</span>
+          <div class="node-pill" id="node-generate_report"><div class="dot"></div>generate report</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="log-section">
+      <div class="section-label">Log de eventos</div>
+      <div class="event-log" id="event-log">
+        <div class="log-entry log-empty">Esperando consulta...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+
+    <div class="right-top">
+      <div class="section-label">Plan de investigación</div>
+      <ul id="plan-list">
+        <div class="plan-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          El plan aparecerá cuando el agente planifique la investigación
+        </div>
+      </ul>
+      <div class="quality-bar-wrap" id="quality-wrap" style="display:none">
+        <div class="quality-bar-label">
+          <span>Calidad de resultados</span>
+          <span id="quality-val">0%</span>
+        </div>
+        <div class="quality-bar"><div class="quality-bar-fill" id="quality-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="right-bottom">
+      <div class="section-label">Informe final</div>
+      <div id="report-container">
+        <div class="report-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          El informe aparecerá aquí al finalizar la investigación
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- HUMAN CHECKPOINT MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Revisión Humana Requerida</h2>
+        <div class="modal-sub">El agente pausó en el checkpoint. Revisa la síntesis y decide cómo continuar.</div>
+      </div>
+    </div>
+    <div id="synthesis-preview">Cargando síntesis...</div>
+    <textarea id="human-comment" placeholder="Comentarios opcionales (se añadirán al informe)..."></textarea>
+    <div class="modal-actions">
+      <button class="modal-btn btn-approve" onclick="sendHumanFeedback('approve')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Aprobar
+      </button>
+      <button class="modal-btn btn-edit" onclick="sendHumanFeedback('edit')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar y continuar
+      </button>
+      <button class="modal-btn btn-reject" onclick="sendHumanFeedback('reject')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Rechazar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentSessionId = null;
+
+// ── Init ──────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const r = await fetch('/research/info');
+    const info = await r.json();
+    document.getElementById('badge-model').textContent = info.model_planning;
+  } catch {
+    document.getElementById('status-dot').classList.add('offline');
+    document.getElementById('status-text').textContent = 'API no disponible';
+  }
+  loadSessions();
+}
+
+// Char counter
+document.getElementById('query').addEventListener('input', function() {
+  document.getElementById('char-count').textContent = this.value.length;
+});
+
+// ── Node state ────────────────────────────────────────────────────────
+function setNodeState(name, state) {
+  const el = document.getElementById(`node-${name}`);
+  if (!el) return;
+  el.classList.remove('running', 'done', 'waiting');
+  if (state) el.classList.add(state);
+}
+
+function resetNodes() {
+  document.querySelectorAll('.node-pill').forEach(el => {
+    el.classList.remove('running', 'done', 'waiting');
+  });
+}
+
+// ── Logging ───────────────────────────────────────────────────────────
+function log(msg, type = 'info') {
+  const el = document.getElementById('event-log');
+  // Remove empty placeholder
+  el.querySelector('.log-empty')?.remove();
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  const ts = new Date().toLocaleTimeString('es-ES', { hour12: false });
+  entry.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  el.appendChild(entry);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Research ──────────────────────────────────────────────────────────
+async function startResearch() {
+  const query = document.getElementById('query').value.trim();
+  if (!query) { document.getElementById('query').focus(); return; }
+
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  document.getElementById('event-log').innerHTML = '';
+  document.getElementById('plan-list').innerHTML = `
+    <div class="plan-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>Planificando...
+    </div>`;
+  document.getElementById('report-container').innerHTML = `
+    <div class="report-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
+        <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>Generando...
+    </div>`;
+  document.getElementById('quality-wrap').style.display = 'none';
+  resetNodes();
+
+  log(`Iniciando: "<em>${query.slice(0, 60)}${query.length > 60 ? '…' : ''}</em>"`);
+
+  try {
+    const resp = await fetch('/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try { handleSSE(JSON.parse(line.slice(6))); } catch {}
+      }
+    }
+  } catch (err) {
+    log(`✗ ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    loadSessions();
+  }
+}
+
+function handleSSE(data) {
+  const { node, status, session_id, report } = data;
+  if (session_id) currentSessionId = session_id;
+
+  if (status === 'started') {
+    log(`Sesión <span style="color:var(--accent);font-family:monospace">${session_id?.slice(0,8)}</span> iniciada`, 'done');
+    return;
+  }
+  if (status === 'running' && node) {
+    setNodeState(node, 'running');
+    log(`▶ <strong>${node.replace(/_/g,' ')}</strong>`, 'running');
+    return;
+  }
+  if (status === 'done' && node) {
+    setNodeState(node, 'done');
+    log(`✓ ${node.replace(/_/g,' ')}`, 'done');
+    if (node === 'plan_research') fetchState(currentSessionId);
+    if (node === 'evaluate_quality') fetchState(currentSessionId, false, true);
+    return;
+  }
+  if (status === 'waiting_human') {
+    setNodeState('human_checkpoint', 'waiting');
+    log('⏸ Checkpoint — revisión humana requerida', 'waiting');
+    fetchState(currentSessionId, true);
+    return;
+  }
+  if (status === 'completed' && report) {
+    log('✓ Investigación completada', 'done');
+    renderReport(report);
+    return;
+  }
+  if (status === 'error') {
+    log(`✗ ${data.message}`, 'error');
+  }
+}
+
+// ── Fetch state ───────────────────────────────────────────────────────
+async function fetchState(sessionId, showModal = false, updateQuality = false) {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`/research/${sessionId}`);
+    if (!r.ok) return;
+    const { state } = await r.json();
+
+    if (state?.research_plan?.length) renderPlan(state.research_plan);
+    if (updateQuality && state?.quality_scores?.length) renderQuality(state.quality_scores);
+    if (showModal && state?.synthesis) {
+      document.getElementById('synthesis-preview').textContent = state.synthesis;
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+  } catch {}
+}
+
+function renderPlan(plan) {
+  const ul = document.getElementById('plan-list');
+  ul.innerHTML = '';
+  plan.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="num">${i + 1}.</span>${s}`;
+    ul.appendChild(li);
+  });
+}
+
+function renderQuality(scores) {
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const pct = Math.round(avg * 100);
+  const fill = document.getElementById('quality-fill');
+  fill.style.width = pct + '%';
+  fill.className = 'quality-bar-fill' + (avg < 0.4 ? ' low' : avg < 0.7 ? ' mid' : '');
+  document.getElementById('quality-val').textContent = pct + '%';
+  document.getElementById('quality-wrap').style.display = 'block';
+}
+
+function renderReport(markdown) {
+  document.getElementById('report-container').innerHTML = marked.parse(markdown);
+}
+
+// ── Human feedback ────────────────────────────────────────────────────
+async function sendHumanFeedback(action) {
+  const content = document.getElementById('human-comment').value || `Action: ${action}`;
+  document.getElementById('modal-overlay').classList.remove('active');
+  log(`Enviando feedback: <strong>${action}</strong>`, 'running');
+
+  try {
+    const r = await fetch(`/research/${currentSessionId}/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, action })
+    });
+    const data = await r.json();
+    if (data.report) {
+      setNodeState('human_checkpoint', 'done');
+      setNodeState('generate_report', 'done');
+      log('✓ Informe generado', 'done');
+      renderReport(data.report);
+    }
+  } catch (err) {
+    log(`✗ ${err.message}`, 'error');
+  }
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────
+async function loadSessions() {
+  try {
+    const r = await fetch('/research');
+    const sessions = await r.json();
+    const container = document.getElementById('sessions-list');
+
+    if (!sessions.length) {
+      container.innerHTML = '<div class="sessions-empty">Sin sesiones aún.<br>Inicia una investigación para verla aquí.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    sessions.slice(0, 10).forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'session-item';
+      const date = s.timestamp ? new Date(s.timestamp).toLocaleDateString('es-ES') : '';
+      div.innerHTML = `<span class="sid">${s.session_id.slice(0, 8)}</span><span class="sdate">${date}</span>`;
+      div.title = s.session_id;
+      div.onclick = () => fetchState(s.session_id);
+      container.appendChild(div);
+    });
+  } catch {}
+}
+
+// ── Start ─────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
