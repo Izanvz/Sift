@@ -1,47 +1,85 @@
 import logging
+import uuid
 from datetime import datetime
 
 import instructor
 from langchain_ollama import OllamaLLM
 from openai import OpenAI
 
+from config.prompts import (
+    CLARIFICATION_PROMPT,
+    CRITIQUE_PROMPT,
+    EVALUATE_RELEVANCE_PROMPT,
+    REWRITE_ANSWER_PROMPT,
+    REWRITE_QUERY_PROMPT,
+    ROUTE_QUERY_PROMPT,
+    SYNTHESIS_PROMPT,
+)
 from config.settings import settings
-from src.agent.state import CritiqueOutput, PlanOutput, ResearchState, SearchResult
-from src.agent.tools import search_arxiv_tool, search_chromadb_tool, search_web_tool
-from src.db.vector_store import save_report
+from src.agent.state import (
+    Chunk,
+    CritiqueOutput,
+    QueryClassification,
+    RelevanceEval,
+    SiftState,
+)
 
 logger = logging.getLogger(__name__)
 
-# Instructor via OpenAI-compatible endpoint de Ollama
+# ---------------------------------------------------------------------------
+# Clientes LLM (singleton por proceso)
+# ---------------------------------------------------------------------------
+
 _instructor_client = instructor.from_openai(
     OpenAI(base_url="http://localhost:11434/v1", api_key="ollama"),
     mode=instructor.Mode.JSON,
 )
-_llm_synthesis = OllamaLLM(model=settings.model_synthesis)
-_llm_routing = OllamaLLM(model=settings.model_routing)
+_llm = OllamaLLM(model=settings.model_synthesis)
 
 
 # ---------------------------------------------------------------------------
-# Nodo 1: plan_research
+# Helpers
 # ---------------------------------------------------------------------------
 
-def plan_research(state: ResearchState) -> dict:
+def _format_chunks_for_prompt(chunks: list[Chunk]) -> str:
+    """Formatea los chunks con IDs para incluir en prompts de síntesis."""
+    lines = []
+    for i, chunk in enumerate(chunks, start=1):
+        src = chunk.get("source_type", "?")
+        path = chunk.get("source_path", "")
+        meta = chunk.get("metadata", {})
+
+        # Localización específica por tipo
+        loc = ""
+        if src == "pdf" and meta.get("page_number"):
+            loc = f", página {meta['page_number']}"
+        elif src == "code" and meta.get("line_start"):
+            loc = f", líneas {meta['line_start']}-{meta.get('line_end', '?')}"
+        elif src == "markdown" and meta.get("section_path"):
+            loc = f", sección '{meta['section_path']}'"
+
+        lines.append(f"[{i}] ({src}{loc}) {path!r}\n{chunk['content'][:400]}")
+    return "\n\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Nodo 1: route_query — clasifica la query antes de buscar
+# ---------------------------------------------------------------------------
+
+def route_query(state: SiftState) -> dict:
     query = state["query"]
-    prompt = (
-        f"You are a research planner. Break the following research query into 3-5 "
-        f"specific, non-overlapping subtopics that together cover the topic comprehensively.\n\n"
-        f"Query: {query}\n\n"
-        f"Return a list of subtopics as strings."
-    )
-    plan: PlanOutput = _instructor_client.chat.completions.create(
-        model=settings.model_planning,
-        response_model=PlanOutput,
-        messages=[{"role": "user", "content": prompt}],
+    classification: QueryClassification = _instructor_client.chat.completions.create(
+        model=settings.model_routing,
+        response_model=QueryClassification,
+        messages=[{"role": "user", "content": ROUTE_QUERY_PROMPT.format(query=query)}],
     )
     return {
-        "research_plan": plan.subtopics,
+        "query_type": classification.query_type,
         "iterations": 0,
         "rewrite_iterations": 0,
+        "chunks": [],
+        "relevance_scores": [],
+        "citations": [],
         "metadata": {
             "query": query,
             "timestamp": datetime.utcnow().isoformat(),
@@ -50,146 +88,140 @@ def plan_research(state: ResearchState) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Nodo 2: search_web
+# Nodo 2: retrieve — stub que llama a ChromaDB (Fase 3: HybridRetriever)
 # ---------------------------------------------------------------------------
 
-def search_web(state: dict) -> dict:
-    query = state.get("query", "")
-    results = search_web_tool(query)
-    return {"search_results": results}
+def retrieve(state: SiftState) -> dict:
+    """Recupera chunks relevantes. Stub: usa ChromaDB directamente.
 
+    En Fase 3 este nodo se reemplaza por HybridRetriever (BM25 + vectorial + RRF + reranker).
+    El contrato del nodo no cambia: recibe SiftState, devuelve {"chunks": list[Chunk]}.
+    """
+    from src.db.vector_store import query_chromadb  # import local para evitar ciclo
 
-# ---------------------------------------------------------------------------
-# Nodo 3: search_chromadb
-# ---------------------------------------------------------------------------
+    query = state["query"]
+    user_id = state.get("user_id")
 
-def search_chromadb(state: dict) -> dict:
-    query = state.get("query", "")
-    results = search_chromadb_tool(query)
-    return {"search_results": results}
-
-
-# ---------------------------------------------------------------------------
-# Nodo 4: search_arxiv (opcional)
-# ---------------------------------------------------------------------------
-
-def search_arxiv(state: dict) -> dict:
-    query = state.get("query", "")
     try:
-        results = search_arxiv_tool(query)
+        raw_results = query_chromadb(query, n_results=settings.retrieval_top_k)
     except Exception as exc:
-        logger.warning("ArXiv search failed: %s", exc)
-        results = []
-    return {"search_results": results}
+        logger.warning("ChromaDB query failed: %s", exc)
+        raw_results = []
+
+    chunks: list[Chunk] = []
+    for r in raw_results:
+        chunks.append(Chunk(
+            chunk_id=r.get("id", str(uuid.uuid4())),
+            document_id=r.get("document_id", ""),
+            source_path=r.get("source_path", r.get("url", "")),
+            source_type=r.get("source_type", "unknown"),
+            content=r.get("content", r.get("document", "")),
+            relevance_score=r.get("relevance", r.get("distance", 0.5)),
+            metadata=r.get("metadata", {}),
+        ))
+
+    return {"chunks": chunks}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 5: gather_results
+# Nodo 3: gather — deduplica y ordena chunks
 # ---------------------------------------------------------------------------
 
-def gather_results(state: ResearchState) -> dict:
-    raw = state.get("search_results", [])
+def gather(state: SiftState) -> dict:
+    chunks = state.get("chunks", [])
     seen: set[str] = set()
-    deduped: list[SearchResult] = []
-    for r in raw:
-        key = f"{r.get('url', '')}::{r.get('content', '')[:100]}"
-        if key not in seen:
-            seen.add(key)
-            deduped.append(r)
+    deduped: list[Chunk] = []
+    for chunk in chunks:
+        if chunk["chunk_id"] not in seen:
+            seen.add(chunk["chunk_id"])
+            deduped.append(chunk)
+
+    # Ordenar por relevancia descendente
+    deduped.sort(key=lambda c: c["relevance_score"], reverse=True)
 
     meta = dict(state.get("metadata", {}))
-    meta["result_count"] = len(deduped)
-    meta["sources"] = list({r.get("source", "") for r in deduped})
-    return {"search_results": deduped, "metadata": meta}
+    meta["chunks_retrieved"] = len(deduped)
+    return {"chunks": deduped, "metadata": meta}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 6: evaluate_quality
+# Nodo 4: evaluate_relevance — decide si los chunks son suficientes
 # ---------------------------------------------------------------------------
 
-def evaluate_quality(state: ResearchState) -> dict:
-    results = state.get("search_results", [])
-    if not results:
+def evaluate_relevance(state: SiftState) -> dict:
+    chunks = state.get("chunks", [])
+    query = state["query"]
+
+    if not chunks:
         score = 0.0
     else:
-        avg_relevance = sum(r.get("relevance", 0.0) for r in results) / len(results)
-        sources = {r.get("source", "") for r in results}
-        diversity_bonus = min(0.15 * (len(sources) - 1), 0.3)
-        score = min(1.0, avg_relevance + diversity_bonus)
+        previews = "\n".join(
+            f"[{i+1}] {c['content'][:150]}..." for i, c in enumerate(chunks[:5])
+        )
+        prompt = EVALUATE_RELEVANCE_PROMPT.format(
+            query=query,
+            n_chunks=len(chunks),
+            chunk_previews=previews,
+        )
+        try:
+            eval_result: RelevanceEval = _instructor_client.chat.completions.create(
+                model=settings.model_routing,
+                response_model=RelevanceEval,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            score = eval_result.score
+        except Exception as exc:
+            logger.warning("Relevance eval failed: %s", exc)
+            score = 0.5  # asumir relevancia media si falla
 
-    existing = list(state.get("quality_scores", []))
-    existing.append(score)
+    scores = list(state.get("relevance_scores", []))
+    scores.append(score)
     iterations = state.get("iterations", 0) + 1
-    return {"quality_scores": existing, "iterations": iterations}
+    return {"relevance_scores": scores, "iterations": iterations}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 7: refine_query
+# Nodo 5: rewrite_query — mejora la query si los resultados son pobres
 # ---------------------------------------------------------------------------
 
-def refine_query(state: ResearchState) -> dict:
-    query = state["query"]
-    plan = state.get("research_plan", [])
-    scores = state.get("quality_scores", [])
+def rewrite_query(state: SiftState) -> dict:
+    scores = state.get("relevance_scores", [])
     avg_score = sum(scores) / len(scores) if scores else 0.0
-
-    prompt = (
-        f"The initial research on '{query}' returned low-quality results "
-        f"(average relevance: {avg_score:.2f}).\n\n"
-        f"Current subtopics:\n" + "\n".join(f"- {s}" for s in plan) + "\n\n"
-        f"Generate 3-5 improved, more specific subtopics that are likely to yield "
-        f"better search results. Be more precise and use different angles."
+    prompt = REWRITE_QUERY_PROMPT.format(
+        query=state["query"],
+        score=avg_score,
     )
-    refined: PlanOutput = _instructor_client.chat.completions.create(
-        model=settings.model_planning,
-        response_model=PlanOutput,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return {"research_plan": refined.subtopics}
+    rewritten = _llm.invoke(prompt).strip()
+    logger.info("Query rewritten: %r → %r", state["query"], rewritten)
+    return {"query": rewritten}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 8: synthesize
+# Nodo 6: synthesize — genera respuesta con citas inline [N]
 # ---------------------------------------------------------------------------
 
-def synthesize(state: ResearchState) -> dict:
-    results = state.get("search_results", [])
-    plan = state.get("research_plan", [])
+def synthesize(state: SiftState) -> dict:
+    chunks = state.get("chunks", [])[:settings.synthesis_top_k]
     query = state["query"]
 
-    sources_text = "\n\n".join(
-        f"[{r.get('source','?')}] {r.get('url','')}\n{r.get('content','')[:500]}"
-        for r in results[:20]
-    )
-    plan_text = "\n".join(f"- {s}" for s in plan)
+    chunks_text = _format_chunks_for_prompt(chunks)
+    prompt = SYNTHESIS_PROMPT.format(query=query, chunks_with_ids=chunks_text)
+    answer = _llm.invoke(prompt)
 
-    prompt = (
-        f"You are a research synthesizer. Based on the following research materials, "
-        f"write a comprehensive synthesis for the query: '{query}'\n\n"
-        f"Research plan subtopics:\n{plan_text}\n\n"
-        f"Sources:\n{sources_text}\n\n"
-        f"Write the synthesis using EXACTLY this structure:\n\n"
-        f"## Introducción\n[2-3 sentences framing the topic]\n\n"
-        f"## Hallazgos\n[Key findings organized by subtopic]\n\n"
-        f"## Síntesis\n[Integrated conclusions and insights]"
-    )
-    synthesis = _llm_synthesis.invoke(prompt)
-    return {"synthesis": synthesis}
+    # Fase 4 construirá citations desde los [N] del answer.
+    # Por ahora, citations = [] (stub).
+    return {"answer": answer, "citations": []}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 9: self_critique
+# Nodo 7: self_critique — evalúa faithfulness, completeness, citation_quality
 # ---------------------------------------------------------------------------
 
-def self_critique(state: ResearchState) -> dict:
-    synthesis = state.get("synthesis", "")
-    query = state["query"]
-
-    prompt = (
-        f"You are a critical reviewer. Evaluate the following research synthesis "
-        f"for the query: '{query}'\n\n"
-        f"Synthesis:\n{synthesis}\n\n"
-        f"Provide a detailed critique with a score from 0 to 10."
+def self_critique(state: SiftState) -> dict:
+    prompt = CRITIQUE_PROMPT.format(
+        query=state["query"],
+        answer=state.get("answer", ""),
+        n_citations=len(state.get("citations", [])),
     )
     critique: CritiqueOutput = _instructor_client.chat.completions.create(
         model=settings.model_synthesis,
@@ -197,85 +229,49 @@ def self_critique(state: ResearchState) -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
     rewrite_iterations = state.get("rewrite_iterations", 0) + 1
-    return {"critique": critique.model_dump(), "rewrite_iterations": rewrite_iterations}
+    return {
+        "critique": critique.model_dump(),
+        "rewrite_iterations": rewrite_iterations,
+    }
 
 
 # ---------------------------------------------------------------------------
-# Nodo 10: rewrite
+# Nodo 8: rewrite_answer — mejora el answer según gaps del critique
 # ---------------------------------------------------------------------------
 
-def rewrite(state: ResearchState) -> dict:
-    synthesis = state.get("synthesis", "")
+def rewrite_answer(state: SiftState) -> dict:
     critique = state.get("critique", {})
-    gaps = critique.get("gaps", [])
-    recommendation = critique.get("recommendation", "")
-    score = critique.get("score", 0)
-
-    gaps_text = "\n".join(f"- {g}" for g in gaps)
-    prompt = (
-        f"You are a research writer. Improve the following synthesis based on critic feedback.\n\n"
-        f"Current score: {score}/10\n"
-        f"Gaps to address:\n{gaps_text}\n"
-        f"Recommendation: {recommendation}\n\n"
-        f"Current synthesis:\n{synthesis}\n\n"
-        f"Write an improved synthesis using the same structure:\n"
-        f"## Introducción\n## Hallazgos\n## Síntesis"
+    gaps_text = "\n".join(f"- {g}" for g in critique.get("gaps", []))
+    prompt = REWRITE_ANSWER_PROMPT.format(
+        score=critique.get("score", 0),
+        gaps=gaps_text,
+        recommendation=critique.get("recommendation", ""),
+        answer=state.get("answer", ""),
     )
-    improved = _llm_synthesis.invoke(prompt)
-    return {"synthesis": improved}
+    improved = _llm.invoke(prompt)
+    return {"answer": improved}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 11: human_checkpoint_node
+# Nodo 9: clarification_request — solo si query_type == "ambiguous"
 # ---------------------------------------------------------------------------
 
-def human_checkpoint_node(state: ResearchState) -> dict:
-    # LangGraph pausa ANTES de este nodo via interrupt_before.
-    # Si se llega aquí es porque se reanudó tras el human review.
-    # LangGraph 0.2.x requiere al menos un campo en el return.
-    return {"human_feedback": state.get("human_feedback")}
+def clarification_request(state: SiftState) -> dict:
+    """LangGraph pausa ANTES de este nodo vía interrupt_before.
+    Al reanudarse, la clarificación ya está en state["clarification"]."""
+    return {"clarification": state.get("clarification")}
 
 
 # ---------------------------------------------------------------------------
-# Nodo 12: generate_report
+# Nodo 10: format_response — formatea la respuesta final
 # ---------------------------------------------------------------------------
 
-def generate_report(state: ResearchState) -> dict:
-    synthesis = state.get("synthesis", "")
-    human_feedback = state.get("human_feedback")
-    meta = state.get("metadata", {})
-    query = state["query"]
-    plan = state.get("research_plan", [])
-    results = state.get("search_results", [])
-
-    feedback_section = ""
-    if human_feedback:
-        feedback_section = f"\n\n## Revisión Humana\n{human_feedback}"
-
-    sources_section = "\n".join(
-        f"- [{r.get('source','?')}] {r.get('url','')}"
-        for r in results
-        if r.get("url")
-    )
-
-    timestamp = meta.get("timestamp", datetime.utcnow().isoformat())
-    plan_text = "\n".join(f"- {s}" for s in plan)
-
-    report = (
-        f"# Informe de Investigación: {query}\n\n"
-        f"**Fecha:** {timestamp}  \n"
-        f"**Fuentes consultadas:** {len(results)}  \n"
-        f"**Subtemas investigados:** {len(plan)}\n\n"
-        f"## Resumen Ejecutivo\n"
-        f"Este informe presenta los hallazgos de una investigación automatizada sobre: *{query}*\n\n"
-        f"**Plan de investigación:**\n{plan_text}\n\n"
-        f"{synthesis}"
-        f"{feedback_section}\n\n"
-        f"## Fuentes Citadas\n{sources_section}\n"
-    )
-
-    report_meta = {**meta, "report_saved": False}
-    saved = save_report(report, {"query": query, "timestamp": timestamp})
-    report_meta["report_saved"] = saved
-
-    return {"report": report, "metadata": report_meta}
+def format_response(state: SiftState) -> dict:
+    meta = dict(state.get("metadata", {}))
+    meta.update({
+        "chunks_used": len(state.get("chunks", [])),
+        "citations_count": len(state.get("citations", [])),
+        "rewrite_iterations": state.get("rewrite_iterations", 0),
+        "final_score": state.get("critique", {}).get("score"),
+    })
+    return {"metadata": meta}
