@@ -208,6 +208,8 @@ def rewrite_query(state: SiftState) -> dict:
 # ---------------------------------------------------------------------------
 
 def synthesize(state: SiftState) -> dict:
+    from src.agent.citations import build_citations  # import local
+
     chunks = state.get("chunks", [])[:settings.synthesis_top_k]
     query = state["query"]
 
@@ -215,9 +217,8 @@ def synthesize(state: SiftState) -> dict:
     prompt = SYNTHESIS_PROMPT.format(query=query, chunks_with_ids=chunks_text)
     answer = _llm.invoke(prompt)
 
-    # Fase 4 construirá citations desde los [N] del answer.
-    # Por ahora, citations = [] (stub).
-    return {"answer": answer, "citations": []}
+    citations = build_citations(answer, chunks)
+    return {"answer": answer, "citations": citations}
 
 
 # ---------------------------------------------------------------------------
