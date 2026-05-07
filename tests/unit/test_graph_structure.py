@@ -31,7 +31,7 @@ def test_graph_has_expected_nodes():
 def test_sift_state_keys():
     """SiftState debe tener todos los campos definidos en el roadmap."""
     required_keys = {
-        "query", "user_id", "query_type",
+        "query", "user_id", "scopes", "is_admin", "query_type",
         "chunks", "relevance_scores", "iterations",
         "answer", "citations",
         "critique", "rewrite_iterations",

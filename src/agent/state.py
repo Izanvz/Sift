@@ -63,6 +63,8 @@ class SiftState(TypedDict):
     # Input
     query: str
     user_id: str | None             # Para permisos (Fase 7)
+    scopes: list[str]               # Corpora permitidos para el usuario (Fase 7)
+    is_admin: bool                  # Bypass scope filter (Fase 7)
 
     # Clasificación
     query_type: str                 # "factual" | "analytical" | "comparative" | "ambiguous"

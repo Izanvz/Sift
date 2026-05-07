@@ -8,11 +8,14 @@ from fastapi.staticfiles import StaticFiles
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from src.agent.graph import build_graph
+    from src.auth.store import get_user_store
     from src.db.checkpointer import get_checkpointer
 
     checkpointer = get_checkpointer()
     app.state.graph = build_graph(checkpointer=checkpointer)
     app.state.checkpointer = checkpointer
+    # Inicializa el user store (crea schema si no existe)
+    get_user_store()
     yield
 
 
@@ -25,7 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from src.api.auth_routes import router as auth_router  # noqa: E402
 from src.api.routes import router  # noqa: E402
 
-app.include_router(router, prefix="/research")
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(router, prefix="/research", tags=["research"])
 app.mount("/", StaticFiles(directory="src/api/static", html=True), name="static")

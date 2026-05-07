@@ -97,11 +97,24 @@ def retrieve(state: SiftState) -> dict:
     Pipeline: BM25 (top_n) || vectorial (top_n) → RRF → cross-encoder rerank
     → top_k. El user_id se traduce a filtro vectorial (Fase 7).
     """
+    from src.auth.models import TokenData
+    from src.auth.scope import build_scope_filter
     from src.retrieval.hybrid import get_hybrid_retriever  # import local
 
     query = state["query"]
     user_id = state.get("user_id")
-    where = {"user_id": user_id} if user_id else None
+    scopes = state.get("scopes") or []
+    is_admin = bool(state.get("is_admin", False))
+
+    # Filtros: scope (corpora permitidos) y user_id (docs privados del usuario).
+    # Admin / scopes=["*"] → no filter de scope.
+    user_token = TokenData(
+        sub=user_id or "anon",
+        username=user_id or "anon",
+        scopes=scopes,
+        is_admin=is_admin,
+    ) if user_id else None
+    where = build_scope_filter(user_token)
 
     try:
         results = get_hybrid_retriever().retrieve(
