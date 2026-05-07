@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 20           # Chunks candidatos antes del reranker
     synthesis_top_k: int = 5            # Chunks finales que van al prompt de síntesis
     relevance_threshold: float = 0.5    # Mínimo para no reescribir la query
+    bm25_top_k: int = 30                # Candidatos por rama BM25
+    vector_top_k: int = 30              # Candidatos por rama vectorial
+    rrf_k: int = 60                     # Constante de RRF (Cormack et al. 2009)
+    reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_enabled: bool = True       # Set False en tests/CI sin GPU
 
     # --- Ciclos del grafo ---
     max_search_iterations: int = 2      # Máximo de rewrites de query

@@ -88,36 +88,43 @@ def route_query(state: SiftState) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Nodo 2: retrieve — stub que llama a ChromaDB (Fase 3: HybridRetriever)
+# Nodo 2: retrieve — HybridRetriever (BM25 + vectorial + RRF + reranker)
 # ---------------------------------------------------------------------------
 
 def retrieve(state: SiftState) -> dict:
-    """Recupera chunks relevantes. Stub: usa ChromaDB directamente.
+    """Recupera chunks relevantes vía HybridRetriever.
 
-    En Fase 3 este nodo se reemplaza por HybridRetriever (BM25 + vectorial + RRF + reranker).
-    El contrato del nodo no cambia: recibe SiftState, devuelve {"chunks": list[Chunk]}.
+    Pipeline: BM25 (top_n) || vectorial (top_n) → RRF → cross-encoder rerank
+    → top_k. El user_id se traduce a filtro vectorial (Fase 7).
     """
-    from src.db.vector_store import query_chromadb  # import local para evitar ciclo
+    from src.retrieval.hybrid import get_hybrid_retriever  # import local
 
     query = state["query"]
     user_id = state.get("user_id")
+    where = {"user_id": user_id} if user_id else None
 
     try:
-        raw_results = query_chromadb(query, n_results=settings.retrieval_top_k)
+        results = get_hybrid_retriever().retrieve(
+            query,
+            top_k=settings.synthesis_top_k,
+            candidates=settings.retrieval_top_k,
+            where=where,
+        )
     except Exception as exc:
-        logger.warning("ChromaDB query failed: %s", exc)
-        raw_results = []
+        logger.warning("Hybrid retrieval failed: %s", exc)
+        results = []
 
     chunks: list[Chunk] = []
-    for r in raw_results:
+    for r in results:
+        meta = r.get("metadata", {}) or {}
         chunks.append(Chunk(
             chunk_id=r.get("id", str(uuid.uuid4())),
-            document_id=r.get("document_id", ""),
-            source_path=r.get("source_path", r.get("url", "")),
-            source_type=r.get("source_type", "unknown"),
-            content=r.get("content", r.get("document", "")),
-            relevance_score=r.get("relevance", r.get("distance", 0.5)),
-            metadata=r.get("metadata", {}),
+            document_id=r.get("document_id") or meta.get("document_id", ""),
+            source_path=r.get("source_path") or meta.get("source_path", ""),
+            source_type=r.get("source_type") or meta.get("source_type", "unknown"),
+            content=r.get("content", ""),
+            relevance_score=float(r.get("relevance_score", 0.0)),
+            metadata=meta,
         ))
 
     return {"chunks": chunks}
