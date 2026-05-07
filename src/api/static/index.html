@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ResearchAgent</title>
+  <title>Sift</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -41,6 +41,66 @@
       overflow: hidden;
     }
 
+    /* ── LOGIN OVERLAY ── */
+    #login-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--bg);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    #login-overlay.active { display: flex; }
+    .login-card {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 36px 40px;
+      width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .login-brand svg { width: 28px; height: 28px; color: var(--accent); }
+    .login-brand h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; }
+    .login-subtitle { font-size: 0.78rem; color: var(--text3); margin-top: -14px; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; }
+    .login-field label { font-size: 0.72rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .login-field input {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-field input:focus { border-color: var(--accent); }
+    .login-btn {
+      padding: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 4px;
+    }
+    .login-btn:hover { background: var(--accent2); }
+    .login-btn:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
+    .login-error { font-size: 0.78rem; color: var(--red); background: var(--red-bg); border: 1px solid #b91c1c; border-radius: 6px; padding: 8px 12px; display: none; }
+    .login-error.visible { display: block; }
+
     /* ── HEADER ── */
     header {
       padding: 0 20px;
@@ -54,7 +114,7 @@
     }
     .header-logo { display: flex; align-items: center; gap: 10px; }
     .header-logo svg { width: 22px; height: 22px; color: var(--accent); }
-    .header-logo h1 { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .header-logo h1 { font-size: 1rem; font-weight: 800; color: var(--text); letter-spacing: -0.03em; }
     .header-badges { display: flex; gap: 6px; margin-left: 4px; }
     .badge {
       font-size: 0.68rem;
@@ -66,9 +126,20 @@
       background: var(--bg3);
     }
     .badge.model { color: var(--purple); border-color: var(--accent); }
-    .header-status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text3); }
+    .badge.scope { color: var(--blue); border-color: #3b82f6; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .header-status { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text3); }
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
     .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .user-chip {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; color: var(--text2);
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 20px; padding: 4px 10px 4px 8px;
+      cursor: pointer; transition: border-color 0.2s;
+    }
+    .user-chip:hover { border-color: var(--accent); }
+    .user-chip svg { width: 12px; height: 12px; color: var(--text3); }
 
     /* ── LAYOUT ── */
     .main { display: flex; flex: 1; overflow: hidden; }
@@ -129,7 +200,6 @@
     .btn-primary:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
     .btn-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
     .btn-primary.loading .btn-spinner { display: block; }
-    .btn-primary.loading .btn-text::after { content: '...'; }
 
     .section-label {
       font-size: 0.65rem;
@@ -179,46 +249,15 @@
       padding: 14px 16px;
       border-bottom: 1px solid var(--border);
       background: var(--bg2);
+      flex-shrink: 0;
     }
     .graph-dag {
       display: flex;
-      flex-direction: column;
-      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
       margin-top: 10px;
     }
-    .dag-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .dag-row.parallel {
-      justify-content: flex-start;
-      padding-left: 32px;
-      gap: 6px;
-    }
-    .dag-connector {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-    }
-    .dag-line { width: 1px; height: 8px; background: var(--border2); margin: 0 auto; }
-    .dag-branch {
-      display: flex;
-      align-items: flex-end;
-      gap: 0;
-      position: relative;
-    }
-    .dag-branch::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 12px;
-      right: 12px;
-      height: 1px;
-      background: var(--border2);
-    }
-
     .node-pill {
       display: inline-flex;
       align-items: center;
@@ -233,7 +272,6 @@
       transition: all 0.25s;
       white-space: nowrap;
       cursor: default;
-      position: relative;
     }
     .node-pill .dot {
       width: 5px; height: 5px;
@@ -241,7 +279,6 @@
       background: var(--text3);
       flex-shrink: 0;
     }
-
     .node-pill.running {
       background: var(--yellow-bg);
       color: var(--yellow);
@@ -249,26 +286,13 @@
       box-shadow: 0 0 10px rgba(251,191,36,0.2);
     }
     .node-pill.running .dot { background: var(--yellow); animation: blink 0.8s ease-in-out infinite; }
-
-    .node-pill.done {
-      background: var(--green-bg);
-      color: var(--green);
-      border-color: #16a34a;
-    }
+    .node-pill.done { background: var(--green-bg); color: var(--green); border-color: #16a34a; }
     .node-pill.done .dot { background: var(--green); }
-
-    .node-pill.waiting {
-      background: #312e81;
-      color: var(--purple);
-      border-color: var(--accent);
-      box-shadow: 0 0 12px rgba(99,102,241,0.3);
-    }
+    .node-pill.waiting { background: #312e81; color: var(--purple); border-color: var(--accent); box-shadow: 0 0 12px rgba(99,102,241,0.3); }
     .node-pill.waiting .dot { background: var(--purple); animation: blink 1.2s ease-in-out infinite; }
-
-    .node-pill.parallel-tag { opacity: 0.85; }
-
+    .node-pill.error { background: var(--red-bg); color: var(--red); border-color: #b91c1c; }
     .dag-arrow { color: var(--border2); font-size: 0.75rem; flex-shrink: 0; }
-    .dag-loop-label { font-size: 0.6rem; color: var(--text3); font-style: italic; margin-left: 4px; }
+    .dag-loop { font-size: 0.6rem; color: var(--text3); font-style: italic; }
 
     /* Event log */
     .log-section {
@@ -292,7 +316,6 @@
     }
     .log-entry { color: var(--text3); }
     .log-entry .ts { color: #334155; margin-right: 6px; }
-    .log-entry.info .ts { color: #334155; }
     .log-entry.running { color: var(--yellow); }
     .log-entry.done { color: var(--green); }
     .log-entry.error { color: var(--red); }
@@ -301,79 +324,111 @@
 
     /* ── RIGHT PANEL ── */
     .panel-right {
-      width: 360px;
+      width: 380px;
       display: flex;
       flex-direction: column;
       background: var(--bg2);
       overflow: hidden;
       flex-shrink: 0;
     }
-    .right-top {
+
+    /* Tabs */
+    .right-tabs {
+      display: flex;
       border-bottom: 1px solid var(--border);
-      padding: 14px 16px;
-      max-height: 220px;
-      overflow-y: auto;
       flex-shrink: 0;
     }
-    .right-bottom {
+    .tab-btn {
       flex: 1;
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .plan-empty, .report-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 20px;
+      padding: 10px 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
       color: var(--text3);
-      font-size: 0.78rem;
-      text-align: center;
-      opacity: 0.7;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      transition: color 0.15s, border-color 0.15s;
     }
-    .plan-empty svg, .report-empty svg { width: 28px; height: 28px; opacity: 0.4; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text2); }
+    .tab-panel { display: none; flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .tab-panel.active { display: flex; flex-direction: column; }
 
-    #plan-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-    #plan-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      font-size: 0.78rem;
-      color: var(--text2);
-      padding: 6px 10px;
-      background: var(--bg3);
-      border-left: 2px solid var(--accent);
-      border-radius: 4px;
-      line-height: 1.4;
-    }
-    #plan-list li .num {
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 0.7rem;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
-    #report-container {
+    /* Answer tab */
+    #answer-container {
       flex: 1;
-      overflow-y: auto;
       font-size: 0.8rem;
       line-height: 1.7;
-      margin-top: 8px;
     }
-    #report-container h1 { font-size: 1rem; color: var(--purple); margin: 12px 0 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-    #report-container h2 { font-size: 0.88rem; color: var(--purple); margin: 10px 0 5px; }
-    #report-container h3 { font-size: 0.82rem; color: var(--blue); margin: 8px 0 4px; }
-    #report-container p { color: var(--text2); margin-bottom: 8px; }
-    #report-container ul, #report-container ol { color: var(--text2); padding-left: 18px; margin-bottom: 8px; }
-    #report-container li { margin-bottom: 3px; }
-    #report-container strong { color: var(--text); }
-    #report-container code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; color: var(--green); }
-    #report-container hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+    #answer-container h1 { font-size: 1rem; color: var(--purple); margin: 12px 0 6px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    #answer-container h2 { font-size: 0.88rem; color: var(--purple); margin: 10px 0 5px; }
+    #answer-container h3 { font-size: 0.82rem; color: var(--blue); margin: 8px 0 4px; }
+    #answer-container p { color: var(--text2); margin-bottom: 8px; }
+    #answer-container ul, #answer-container ol { color: var(--text2); padding-left: 18px; margin-bottom: 8px; }
+    #answer-container li { margin-bottom: 3px; }
+    #answer-container strong { color: var(--text); }
+    #answer-container code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; color: var(--green); }
+    #answer-container hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+    .cite-inline { font-size: 0.65rem; color: var(--accent); font-family: monospace; }
+
+    /* Citations tab */
+    .citation-card {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .citation-card:last-child { margin-bottom: 0; }
+    .cite-num {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+    }
+    .cite-source { font-size: 0.7rem; color: var(--accent); font-family: monospace; word-break: break-all; }
+    .cite-type { font-size: 0.65rem; color: var(--text3); margin-left: 6px; }
+    .cite-loc { font-size: 0.65rem; color: var(--text3); margin-top: 2px; }
+    .cite-snippet {
+      font-size: 0.73rem;
+      color: var(--text2);
+      border-left: 2px solid var(--border2);
+      padding-left: 8px;
+      margin-top: 6px;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* Critique tab */
+    .critique-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .critique-label { font-size: 0.76rem; color: var(--text2); }
+    .critique-score {
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .score-hi { background: var(--green-bg); color: var(--green); }
+    .score-mid { background: var(--yellow-bg); color: var(--yellow); }
+    .score-lo { background: var(--red-bg); color: var(--red); }
+    .critique-bar { height: 3px; background: var(--bg3); border-radius: 2px; flex: 1; margin: 0 8px; }
+    .critique-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+    .gap-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .gap-item { font-size: 0.74rem; color: var(--text2); background: var(--bg3); border-left: 2px solid var(--yellow); padding: 6px 10px; border-radius: 4px; }
+    .panel-empty { font-size: 0.78rem; color: var(--text3); text-align: center; padding: 24px; opacity: 0.7; }
 
     /* quality bar */
     .quality-bar-wrap { margin-top: 8px; }
@@ -404,10 +459,10 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.2);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     }
     .modal-header { display: flex; align-items: center; gap: 10px; }
-    .modal-icon { width: 32px; height: 32px; border-radius: 8px; background: #312e81; display: flex; align-items: center; justify-content: center; }
+    .modal-icon { width: 32px; height: 32px; border-radius: 8px; background: #312e81; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .modal h2 { font-size: 0.95rem; font-weight: 700; color: var(--text); }
     .modal-sub { font-size: 0.78rem; color: var(--text3); margin-top: 2px; }
     #synthesis-preview {
@@ -421,7 +476,6 @@
       overflow-y: auto;
       white-space: pre-wrap;
       line-height: 1.6;
-      font-family: 'Segoe UI', system-ui, sans-serif;
     }
     #human-comment {
       width: 100%;
@@ -441,17 +495,13 @@
     #human-comment::placeholder { color: var(--text3); }
     .modal-actions { display: flex; gap: 8px; }
     .modal-btn {
-      flex: 1;
-      padding: 10px;
+      flex: 1; padding: 10px;
       border-radius: 8px;
       cursor: pointer;
       font-weight: 600;
       font-size: 0.8rem;
       transition: opacity 0.15s, transform 0.1s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .modal-btn:hover { opacity: 0.85; }
     .modal-btn:active { transform: scale(0.97); }
@@ -463,7 +513,6 @@
     @keyframes spin  { to { transform: rotate(360deg); } }
     @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
-    /* scrollbar */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
@@ -471,22 +520,53 @@
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- ── LOGIN OVERLAY ── -->
+<div id="login-overlay" class="active">
+  <div class="login-card">
+    <div class="login-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 7v5M8.5 11h5"/>
+      </svg>
+      <h1>Sift</h1>
+    </div>
+    <p class="login-subtitle">Knowledge agent — on-premise</p>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="login-user" placeholder="username" autocomplete="username" />
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
 <header>
   <div class="header-logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 7v5M8.5 11h5"/>
     </svg>
-    <h1>ResearchAgent</h1>
+    <h1>Sift</h1>
   </div>
   <div class="header-badges">
     <span class="badge">LangGraph</span>
     <span class="badge">Ollama local</span>
-    <span class="badge model" id="badge-model">cargando...</span>
+    <span class="badge model" id="badge-model">—</span>
+    <span class="badge scope" id="badge-scopes" style="display:none"></span>
   </div>
-  <div class="header-status">
-    <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">API activa</span>
+  <div class="header-right">
+    <div class="header-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">API activa</span>
+    </div>
+    <div class="user-chip" id="user-chip" onclick="doLogout()" title="Cerrar sesión" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span id="user-chip-name">—</span>
+    </div>
   </div>
 </header>
 
@@ -495,20 +575,18 @@
   <!-- LEFT PANEL -->
   <div class="panel-left">
     <div class="panel-section">
-      <div class="section-label">Nueva investigación</div>
-      <textarea id="query" placeholder="¿Sobre qué quieres investigar? Sé específico para mejores resultados." maxlength="500"></textarea>
+      <div class="section-label">Nueva consulta</div>
+      <textarea id="query" placeholder="Pregunta sobre los documentos indexados... Sé específico." maxlength="500"></textarea>
       <div class="char-count"><span id="char-count">0</span>/500</div>
       <button class="btn-primary" id="btn-start" onclick="startResearch()">
         <div class="btn-spinner"></div>
-        <span class="btn-text">Iniciar Investigación</span>
+        <span class="btn-text">Buscar &amp; sintetizar</span>
       </button>
     </div>
     <div class="panel-section" style="flex:1; overflow-y:auto;">
-      <div class="section-label">Sesiones anteriores</div>
+      <div class="section-label">Sesiones</div>
       <div id="sessions-list">
-        <div class="sessions-empty">
-          Sin sesiones aún.<br>Inicia una investigación para verla aquí.
-        </div>
+        <div class="sessions-empty">Sin sesiones aún.</div>
       </div>
     </div>
   </div>
@@ -516,55 +594,29 @@
   <!-- CENTER PANEL -->
   <div class="panel-center">
 
-    <!-- Graph DAG -->
+    <!-- Graph DAG (Sift v2 nodes) -->
     <div class="graph-section">
-      <div class="section-label">Flujo del grafo</div>
+      <div class="section-label">Pipeline</div>
       <div class="graph-dag" id="graph-dag">
-
-        <!-- Row 1: plan_research -->
-        <div class="dag-row">
-          <div class="node-pill" id="node-plan_research"><div class="dot"></div>plan research</div>
-          <span class="dag-arrow">↓</span>
-        </div>
-
-        <!-- Row 2: parallel searches -->
-        <div class="dag-row parallel">
-          <div class="node-pill parallel-tag" id="node-search_web"><div class="dot"></div>search web</div>
-          <div class="node-pill parallel-tag" id="node-search_chromadb"><div class="dot"></div>chromadb</div>
-          <div class="node-pill parallel-tag" id="node-search_arxiv"><div class="dot"></div>arxiv</div>
-          <span class="dag-loop-label">fan-out paralelo</span>
-        </div>
-
-        <!-- Row 3: gather + evaluate -->
-        <div class="dag-row">
-          <span class="dag-arrow" style="padding-left:32px">↓</span>
-        </div>
-        <div class="dag-row">
-          <div class="node-pill" id="node-gather_results"><div class="dot"></div>gather results</div>
-          <span class="dag-arrow">→</span>
-          <div class="node-pill" id="node-evaluate_quality"><div class="dot"></div>evaluate quality</div>
-          <span class="dag-arrow">⟳</span>
-          <div class="node-pill" id="node-refine_query" style="opacity:0.75"><div class="dot"></div>refine query</div>
-          <span class="dag-loop-label">loop ×3</span>
-        </div>
-
-        <!-- Row 4: synthesize + critique -->
-        <div class="dag-row" style="margin-top:2px">
-          <div class="node-pill" id="node-synthesize"><div class="dot"></div>synthesize</div>
-          <span class="dag-arrow">→</span>
-          <div class="node-pill" id="node-self_critique"><div class="dot"></div>self critique</div>
-          <span class="dag-arrow">⟳</span>
-          <div class="node-pill" id="node-rewrite" style="opacity:0.75"><div class="dot"></div>rewrite</div>
-          <span class="dag-loop-label">loop ×3</span>
-        </div>
-
-        <!-- Row 5: human + report -->
-        <div class="dag-row" style="margin-top:2px">
-          <div class="node-pill" id="node-human_checkpoint"><div class="dot"></div>⏸ human checkpoint</div>
-          <span class="dag-arrow">→</span>
-          <div class="node-pill" id="node-generate_report"><div class="dot"></div>generate report</div>
-        </div>
-
+        <div class="node-pill" id="node-route_query"><div class="dot"></div>route query</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-retrieve"><div class="dot"></div>retrieve</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-gather"><div class="dot"></div>gather</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-evaluate_relevance"><div class="dot"></div>evaluate</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-rewrite_query" style="opacity:.75"><div class="dot"></div>rewrite query</div>
+        <span class="dag-loop" title="loop si baja relevancia">⟳</span>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-synthesize"><div class="dot"></div>synthesize</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-self_critique"><div class="dot"></div>critique</div>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-rewrite_answer" style="opacity:.75"><div class="dot"></div>rewrite ans</div>
+        <span class="dag-loop" title="loop si faithfulness baja">⟳</span>
+        <span class="dag-arrow">→</span>
+        <div class="node-pill" id="node-format_response"><div class="dot"></div>format</div>
       </div>
     </div>
 
@@ -580,38 +632,32 @@
 
   <!-- RIGHT PANEL -->
   <div class="panel-right">
+    <div class="right-tabs">
+      <button class="tab-btn active" onclick="switchTab('answer')">Respuesta</button>
+      <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
+      <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
+    </div>
 
-    <div class="right-top">
-      <div class="section-label">Plan de investigación</div>
-      <ul id="plan-list">
-        <div class="plan-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
-          El plan aparecerá cuando el agente planifique la investigación
-        </div>
-      </ul>
-      <div class="quality-bar-wrap" id="quality-wrap" style="display:none">
-        <div class="quality-bar-label">
-          <span>Calidad de resultados</span>
-          <span id="quality-val">0%</span>
-        </div>
-        <div class="quality-bar"><div class="quality-bar-fill" id="quality-fill" style="width:0%"></div></div>
+    <!-- Answer tab -->
+    <div class="tab-panel active" id="tab-answer">
+      <div id="answer-container">
+        <div class="panel-empty">La respuesta aparecerá aquí al finalizar.</div>
       </div>
     </div>
 
-    <div class="right-bottom">
-      <div class="section-label">Informe final</div>
-      <div id="report-container">
-        <div class="report-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-          </svg>
-          El informe aparecerá aquí al finalizar la investigación
-        </div>
+    <!-- Citations tab -->
+    <div class="tab-panel" id="tab-citations">
+      <div id="citations-container">
+        <div class="panel-empty">Las fuentes citadas aparecerán aquí.</div>
       </div>
     </div>
 
+    <!-- Critique tab -->
+    <div class="tab-panel" id="tab-critique">
+      <div id="critique-container">
+        <div class="panel-empty">El análisis de calidad aparecerá aquí.</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -625,12 +671,12 @@
         </svg>
       </div>
       <div>
-        <h2>Revisión Humana Requerida</h2>
-        <div class="modal-sub">El agente pausó en el checkpoint. Revisa la síntesis y decide cómo continuar.</div>
+        <h2>Revisión humana requerida</h2>
+        <div class="modal-sub">El agente pausó en el checkpoint. Revisa la síntesis y decide.</div>
       </div>
     </div>
     <div id="synthesis-preview">Cargando síntesis...</div>
-    <textarea id="human-comment" placeholder="Comentarios opcionales (se añadirán al informe)..."></textarea>
+    <textarea id="human-comment" placeholder="Comentarios opcionales..."></textarea>
     <div class="modal-actions">
       <button class="modal-btn btn-approve" onclick="sendHumanFeedback('approve')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -638,7 +684,7 @@
       </button>
       <button class="modal-btn btn-edit" onclick="sendHumanFeedback('edit')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Editar y continuar
+        Editar
       </button>
       <button class="modal-btn btn-reject" onclick="sendHumanFeedback('reject')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -649,14 +695,100 @@
 </div>
 
 <script>
+// ── State ────────────────────────────────────────────────────────────────
+let token = sessionStorage.getItem('sift_token') || null;
+let currentUser = null;
 let currentSessionId = null;
 
-// ── Init ──────────────────────────────────────────────────────────────
-async function init() {
+// ── Auth ─────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  if (!username || !password) {
+    errEl.textContent = 'Introduce usuario y contraseña.';
+    errEl.classList.add('visible');
+    return;
+  }
+  errEl.classList.remove('visible');
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
   try {
-    const r = await fetch('/research/info');
+    const form = new URLSearchParams({ username, password });
+    const r = await fetch('/auth/login', { method: 'POST', body: form });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    token = data.access_token;
+    sessionStorage.setItem('sift_token', token);
+    document.getElementById('login-overlay').classList.remove('active');
+    await init();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+function doLogout() {
+  token = null;
+  currentUser = null;
+  sessionStorage.removeItem('sift_token');
+  document.getElementById('login-overlay').classList.add('active');
+  document.getElementById('user-chip').style.display = 'none';
+  document.getElementById('badge-scopes').style.display = 'none';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+function authHeaders() {
+  return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+
+async function apiFetch(url, opts = {}) {
+  opts.headers = { ...authHeaders(), ...(opts.headers || {}) };
+  const r = await fetch(url, opts);
+  if (r.status === 401) { doLogout(); throw new Error('Sesión expirada'); }
+  return r;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+async function init() {
+  // Check token validity
+  if (token) {
+    try {
+      const r = await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) { token = null; sessionStorage.removeItem('sift_token'); }
+      else {
+        currentUser = await r.json();
+        document.getElementById('user-chip').style.display = 'flex';
+        document.getElementById('user-chip-name').textContent = currentUser.username;
+        document.getElementById('login-overlay').classList.remove('active');
+        if (currentUser.scopes?.length) {
+          const scopeBadge = document.getElementById('badge-scopes');
+          scopeBadge.textContent = currentUser.scopes.join(', ');
+          scopeBadge.style.display = 'inline-block';
+        }
+      }
+    } catch { token = null; }
+  }
+
+  if (!token) {
+    document.getElementById('login-overlay').classList.add('active');
+    return;
+  }
+
+  try {
+    const r = await apiFetch('/research/info');
     const info = await r.json();
-    document.getElementById('badge-model').textContent = info.model_planning;
+    document.getElementById('badge-model').textContent = info.model_synthesis || info.model_planning || '—';
   } catch {
     document.getElementById('status-dot').classList.add('offline');
     document.getElementById('status-text').textContent = 'API no disponible';
@@ -664,29 +796,38 @@ async function init() {
   loadSessions();
 }
 
-// Char counter
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const names = ['answer', 'citations', 'critique'];
+    b.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+// ── Char counter ─────────────────────────────────────────────────────────
 document.getElementById('query').addEventListener('input', function() {
   document.getElementById('char-count').textContent = this.value.length;
 });
 
-// ── Node state ────────────────────────────────────────────────────────
+// ── Node state ────────────────────────────────────────────────────────────
 function setNodeState(name, state) {
   const el = document.getElementById(`node-${name}`);
   if (!el) return;
-  el.classList.remove('running', 'done', 'waiting');
+  el.classList.remove('running', 'done', 'waiting', 'error');
   if (state) el.classList.add(state);
 }
 
 function resetNodes() {
   document.querySelectorAll('.node-pill').forEach(el => {
-    el.classList.remove('running', 'done', 'waiting');
+    el.classList.remove('running', 'done', 'waiting', 'error');
   });
 }
 
-// ── Logging ───────────────────────────────────────────────────────────
+// ── Logging ───────────────────────────────────────────────────────────────
 function log(msg, type = 'info') {
   const el = document.getElementById('event-log');
-  // Remove empty placeholder
   el.querySelector('.log-empty')?.remove();
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
@@ -696,7 +837,7 @@ function log(msg, type = 'info') {
   el.scrollTop = el.scrollHeight;
 }
 
-// ── Research ──────────────────────────────────────────────────────────
+// ── Research ──────────────────────────────────────────────────────────────
 async function startResearch() {
   const query = document.getElementById('query').value.trim();
   if (!query) { document.getElementById('query').focus(); return; }
@@ -706,29 +847,23 @@ async function startResearch() {
   btn.classList.add('loading');
 
   document.getElementById('event-log').innerHTML = '';
-  document.getElementById('plan-list').innerHTML = `
-    <div class="plan-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
-        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-      </svg>Planificando...
-    </div>`;
-  document.getElementById('report-container').innerHTML = `
-    <div class="report-empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
-        <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-      </svg>Generando...
-    </div>`;
-  document.getElementById('quality-wrap').style.display = 'none';
+  document.getElementById('answer-container').innerHTML = '<div class="panel-empty">Generando...</div>';
+  document.getElementById('citations-container').innerHTML = '<div class="panel-empty">Recuperando fuentes...</div>';
+  document.getElementById('critique-container').innerHTML = '<div class="panel-empty">Evaluando...</div>';
   resetNodes();
 
-  log(`Iniciando: "<em>${query.slice(0, 60)}${query.length > 60 ? '…' : ''}</em>"`);
+  log(`Consulta: "<em>${query.slice(0, 70)}${query.length > 70 ? '…' : ''}</em>"`);
 
   try {
-    const resp = await fetch('/research', {
+    const resp = await apiFetch('/research', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ query }),
     });
+
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.detail || `HTTP ${resp.status}`);
+    }
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -755,7 +890,7 @@ async function startResearch() {
 }
 
 function handleSSE(data) {
-  const { node, status, session_id, report } = data;
+  const { node, status, session_id } = data;
   if (session_id) currentSessionId = session_id;
 
   if (status === 'started') {
@@ -764,123 +899,174 @@ function handleSSE(data) {
   }
   if (status === 'running' && node) {
     setNodeState(node, 'running');
-    log(`▶ <strong>${node.replace(/_/g,' ')}</strong>`, 'running');
+    log(`▶ ${node.replace(/_/g,' ')}`, 'running');
     return;
   }
   if (status === 'done' && node) {
     setNodeState(node, 'done');
     log(`✓ ${node.replace(/_/g,' ')}`, 'done');
-    if (node === 'plan_research') fetchState(currentSessionId);
-    if (node === 'evaluate_quality') fetchState(currentSessionId, false, true);
+    // Fetch state para obtener citations + critique cuando terminan esos nodos
+    if (node === 'format_response') fetchFinalState(currentSessionId);
     return;
   }
   if (status === 'waiting_human') {
-    setNodeState('human_checkpoint', 'waiting');
-    log('⏸ Checkpoint — revisión humana requerida', 'waiting');
-    fetchState(currentSessionId, true);
+    setNodeState('clarification_request', 'waiting');
+    log('⏸ Checkpoint — revisión requerida', 'waiting');
+    fetchStateForModal(currentSessionId);
     return;
   }
-  if (status === 'completed' && report) {
-    log('✓ Investigación completada', 'done');
-    renderReport(report);
+  if (status === 'completed') {
+    log('✓ Completado', 'done');
+    if (data.report) renderAnswer(data.report);
+    fetchFinalState(currentSessionId);
     return;
   }
   if (status === 'error') {
-    log(`✗ ${data.message}`, 'error');
+    log(`✗ ${data.message || 'Error desconocido'}`, 'error');
   }
 }
 
-// ── Fetch state ───────────────────────────────────────────────────────
-async function fetchState(sessionId, showModal = false, updateQuality = false) {
+// ── Fetch state ───────────────────────────────────────────────────────────
+async function fetchFinalState(sessionId) {
   if (!sessionId) return;
   try {
-    const r = await fetch(`/research/${sessionId}`);
+    const r = await apiFetch(`/research/${sessionId}`);
     if (!r.ok) return;
     const { state } = await r.json();
+    if (state?.answer) renderAnswer(state.answer);
+    if (state?.citations?.length) renderCitations(state.citations);
+    if (state?.critique) renderCritique(state.critique);
+  } catch {}
+}
 
-    if (state?.research_plan?.length) renderPlan(state.research_plan);
-    if (updateQuality && state?.quality_scores?.length) renderQuality(state.quality_scores);
-    if (showModal && state?.synthesis) {
-      document.getElementById('synthesis-preview').textContent = state.synthesis;
+async function fetchStateForModal(sessionId) {
+  if (!sessionId) return;
+  try {
+    const r = await apiFetch(`/research/${sessionId}`);
+    if (!r.ok) return;
+    const { state } = await r.json();
+    if (state?.answer) {
+      document.getElementById('synthesis-preview').textContent = state.answer.slice(0, 600) + (state.answer.length > 600 ? '…' : '');
       document.getElementById('modal-overlay').classList.add('active');
     }
   } catch {}
 }
 
-function renderPlan(plan) {
-  const ul = document.getElementById('plan-list');
-  ul.innerHTML = '';
-  plan.forEach((s, i) => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span class="num">${i + 1}.</span>${s}`;
-    ul.appendChild(li);
+function renderAnswer(text) {
+  document.getElementById('answer-container').innerHTML = marked.parse(text);
+}
+
+function renderCitations(citations) {
+  const container = document.getElementById('citations-container');
+  if (!citations?.length) {
+    container.innerHTML = '<div class="panel-empty">No se detectaron citas en la respuesta.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  citations.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'citation-card';
+    const loc = c.page_number ? `pág. ${c.page_number}` : (c.line_start ? `líneas ${c.line_start}–${c.line_end || '?'}` : '');
+    const snippet = c.snippet ? `<div class="cite-snippet">"${esc(c.snippet)}"</div>` : '';
+    card.innerHTML = `
+      <span class="cite-num">[${i + 1}]</span>
+      <div class="cite-source">${esc(c.source_path || '—')}<span class="cite-type">${esc(c.source_type || '')}</span></div>
+      ${loc ? `<div class="cite-loc">${esc(loc)}</div>` : ''}
+      ${snippet}`;
+    container.appendChild(card);
   });
+  // Badge on tab
+  document.querySelectorAll('.tab-btn')[1].textContent = `Citas (${citations.length})`;
 }
 
-function renderQuality(scores) {
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const pct = Math.round(avg * 100);
-  const fill = document.getElementById('quality-fill');
-  fill.style.width = pct + '%';
-  fill.className = 'quality-bar-fill' + (avg < 0.4 ? ' low' : avg < 0.7 ? ' mid' : '');
-  document.getElementById('quality-val').textContent = pct + '%';
-  document.getElementById('quality-wrap').style.display = 'block';
+function renderCritique(critique) {
+  const container = document.getElementById('critique-container');
+  if (!critique || typeof critique !== 'object') {
+    container.innerHTML = '<div class="panel-empty">Sin datos de critique.</div>';
+    return;
+  }
+  const metrics = [
+    { key: 'score',            label: 'Score global' },
+    { key: 'faithfulness',     label: 'Faithfulness' },
+    { key: 'completeness',     label: 'Completeness' },
+    { key: 'citation_quality', label: 'Citation quality' },
+  ];
+  let html = '';
+  metrics.forEach(({ key, label }) => {
+    const v = critique[key];
+    if (v === undefined) return;
+    const pct = (v / 10) * 100;
+    const cls = v >= 7 ? 'score-hi' : v >= 5 ? 'score-mid' : 'score-lo';
+    const fillColor = v >= 7 ? 'var(--green)' : v >= 5 ? 'var(--yellow)' : 'var(--red)';
+    html += `<div class="critique-row">
+      <span class="critique-label">${label}</span>
+      <div class="critique-bar"><div class="critique-bar-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+      <span class="critique-score ${cls}">${v.toFixed(1)}</span>
+    </div>`;
+  });
+  if (critique.gaps?.length) {
+    html += `<div class="section-label" style="margin-top:12px;margin-bottom:6px">Gaps detectados</div>
+      <ul class="gap-list">${critique.gaps.map(g => `<li class="gap-item">• ${esc(g)}</li>`).join('')}</ul>`;
+  }
+  if (critique.recommendation) {
+    html += `<div class="section-label" style="margin-top:12px;margin-bottom:6px">Recomendación</div>
+      <div class="gap-item" style="border-color:var(--accent)">${esc(critique.recommendation)}</div>`;
+  }
+  container.innerHTML = html;
 }
 
-function renderReport(markdown) {
-  document.getElementById('report-container').innerHTML = marked.parse(markdown);
-}
-
-// ── Human feedback ────────────────────────────────────────────────────
+// ── Human feedback ────────────────────────────────────────────────────────
 async function sendHumanFeedback(action) {
   const content = document.getElementById('human-comment').value || `Action: ${action}`;
   document.getElementById('modal-overlay').classList.remove('active');
-  log(`Enviando feedback: <strong>${action}</strong>`, 'running');
-
+  log(`Feedback enviado: <strong>${action}</strong>`, 'running');
   try {
-    const r = await fetch(`/research/${currentSessionId}/resume`, {
+    const r = await apiFetch(`/research/${currentSessionId}/resume`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, action })
+      body: JSON.stringify({ content, action }),
     });
     const data = await r.json();
     if (data.report) {
-      setNodeState('human_checkpoint', 'done');
-      setNodeState('generate_report', 'done');
-      log('✓ Informe generado', 'done');
-      renderReport(data.report);
+      setNodeState('format_response', 'done');
+      log('✓ Completado tras revisión', 'done');
+      renderAnswer(data.report);
+      loadSessions();
     }
   } catch (err) {
     log(`✗ ${err.message}`, 'error');
   }
 }
 
-// ── Sessions ──────────────────────────────────────────────────────────
+// ── Sessions ──────────────────────────────────────────────────────────────
 async function loadSessions() {
   try {
-    const r = await fetch('/research');
+    const r = await apiFetch('/research');
+    if (!r.ok) return;
     const sessions = await r.json();
     const container = document.getElementById('sessions-list');
-
     if (!sessions.length) {
-      container.innerHTML = '<div class="sessions-empty">Sin sesiones aún.<br>Inicia una investigación para verla aquí.</div>';
+      container.innerHTML = '<div class="sessions-empty">Sin sesiones aún.</div>';
       return;
     }
-
     container.innerHTML = '';
-    sessions.slice(0, 10).forEach(s => {
+    sessions.slice(0, 12).forEach(s => {
       const div = document.createElement('div');
       div.className = 'session-item';
       const date = s.timestamp ? new Date(s.timestamp).toLocaleDateString('es-ES') : '';
-      div.innerHTML = `<span class="sid">${s.session_id.slice(0, 8)}</span><span class="sdate">${date}</span>`;
-      div.title = s.session_id;
-      div.onclick = () => fetchState(s.session_id);
+      div.innerHTML = `<span class="sid">${s.session_id?.slice(0, 8) || '—'}</span><span class="sdate">${date}</span>`;
+      div.title = s.session_id || '';
+      div.onclick = () => fetchFinalState(s.session_id);
       container.appendChild(div);
     });
   } catch {}
 }
 
-// ── Start ─────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
 init();
 </script>
 </body>

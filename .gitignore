@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data (generados en runtime — no commitear)
+data/chroma/
+data/bm25_index/
+data/audit.db
+*.db
+
+# Datasets clonados (demasiado pesados para git)
+data/sources/enterprise/vercel-docs/
+data/sources/enterprise/stripe-go-sdk/
+data/sources/enterprise/enron/
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

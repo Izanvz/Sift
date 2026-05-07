@@ -1,125 +1,102 @@
 from langgraph.graph import StateGraph, START, END
 
-from src.agent.state import ResearchState
-from src.agent.edges import route_after_quality_eval, route_after_critique, route_to_searches
-from src.agent.nodes import (
-    plan_research,
-    search_web,
-    search_chromadb,
-    gather_results,
-    evaluate_quality,
-    refine_query,
-    synthesize,
-    self_critique,
-    rewrite,
-    human_checkpoint_node,
-    generate_report,
+from src.agent.state import SiftState
+from src.agent.edges import (
+    route_after_classification,
+    route_after_critique,
+    route_after_relevance,
 )
-from config.settings import settings
-
-
-def _try_import_arxiv_node():
-    """Importa el nodo search_arxiv solo si está disponible."""
-    try:
-        from src.agent.nodes import search_arxiv
-        return search_arxiv
-    except ImportError:
-        return None
+from src.agent.nodes import (
+    clarification_request,
+    evaluate_relevance,
+    format_response,
+    gather,
+    retrieve,
+    rewrite_answer,
+    rewrite_query,
+    route_query,
+    self_critique,
+    synthesize,
+)
 
 
 def build_graph(checkpointer=None):
-    """Construye y compila el grafo LangGraph del Research Agent.
+    """Construye y compila el grafo LangGraph de Sift v2.
+
+    Flujo principal:
+        START → route_query → [clarification_request | retrieve]
+                             → gather → evaluate_relevance
+                             → [rewrite_query → retrieve (ciclo) | synthesize]
+                             → self_critique
+                             → [rewrite_answer → synthesize (ciclo) | format_response]
+                             → END
 
     Args:
-        checkpointer: Instancia de checkpointer compatible con LangGraph
-                      (e.g., SqliteSaver). Si es None se compila sin persistencia.
+        checkpointer: SqliteSaver u otro checkpointer de LangGraph.
+                      None compila sin persistencia.
 
     Returns:
         CompiledStateGraph listo para invocar.
     """
-    builder = StateGraph(ResearchState)
+    builder = StateGraph(SiftState)
 
     # --- Nodos ---
-    builder.add_node("plan_research", plan_research)
-    builder.add_node("search_web", search_web)
-    builder.add_node("search_chromadb", search_chromadb)
-
-    search_arxiv = _try_import_arxiv_node()
-    if search_arxiv is not None:
-        builder.add_node("search_arxiv", search_arxiv)
-
-    builder.add_node("gather_results", gather_results)
-    builder.add_node("evaluate_quality", evaluate_quality)
-    builder.add_node("refine_query", refine_query)
+    builder.add_node("route_query", route_query)
+    builder.add_node("clarification_request", clarification_request)
+    builder.add_node("retrieve", retrieve)
+    builder.add_node("gather", gather)
+    builder.add_node("evaluate_relevance", evaluate_relevance)
+    builder.add_node("rewrite_query", rewrite_query)
     builder.add_node("synthesize", synthesize)
     builder.add_node("self_critique", self_critique)
-    builder.add_node("rewrite", rewrite)
-    builder.add_node("human_checkpoint", human_checkpoint_node)
-    builder.add_node("generate_report", generate_report)
+    builder.add_node("rewrite_answer", rewrite_answer)
+    builder.add_node("format_response", format_response)
 
-    # --- Edges: inicio → planificación ---
-    builder.add_edge(START, "plan_research")
+    # --- Edges ---
+    builder.add_edge(START, "route_query")
 
-    # --- Fan-out: plan_research → search_* via Send() ---
+    # Clasificación → clarificación (si ambigua) o retrieval
     builder.add_conditional_edges(
-        "plan_research",
-        route_to_searches,
-        ["search_web", "search_chromadb"],
+        "route_query",
+        route_after_classification,
+        {"clarification_request": "clarification_request", "retrieve": "retrieve"},
     )
 
-    # --- Fan-in: search_* → gather_results ---
-    builder.add_edge("search_web", "gather_results")
-    builder.add_edge("search_chromadb", "gather_results")
+    # Tras clarificación (human-in-the-loop), continuar con retrieval
+    builder.add_edge("clarification_request", "retrieve")
 
-    if search_arxiv is not None:
-        builder.add_edge("search_arxiv", "gather_results")
+    # Retrieval → gather → evaluate
+    builder.add_edge("retrieve", "gather")
+    builder.add_edge("gather", "evaluate_relevance")
 
-    # --- gather_results → evaluate_quality ---
-    builder.add_edge("gather_results", "evaluate_quality")
-
-    # --- Ciclo 1: quality loop (evaluate → refine → fan-out de nuevo) ---
+    # Ciclo 1: relevancia insuficiente → reescribir query → retrieve de nuevo
     builder.add_conditional_edges(
-        "evaluate_quality",
-        route_after_quality_eval,
-        {
-            "refine_query": "refine_query",
-            "synthesize": "synthesize",
-        },
+        "evaluate_relevance",
+        route_after_relevance,
+        {"rewrite_query": "rewrite_query", "synthesize": "synthesize"},
     )
+    builder.add_edge("rewrite_query", "retrieve")
 
-    # refine_query vuelve al fan-out via Send()
-    builder.add_conditional_edges(
-        "refine_query",
-        route_to_searches,
-        ["search_web", "search_chromadb"],
-    )
-
-    # --- Ciclo 2: rewrite loop (synthesize → critique → rewrite → synthesize) ---
+    # Generación → critique
     builder.add_edge("synthesize", "self_critique")
 
+    # Ciclo 2: score bajo → reescribir respuesta → synthesize de nuevo
     builder.add_conditional_edges(
         "self_critique",
         route_after_critique,
-        {
-            "rewrite": "rewrite",
-            "human_checkpoint": "human_checkpoint",
-        },
+        {"rewrite_answer": "rewrite_answer", "format_response": "format_response"},
     )
+    builder.add_edge("rewrite_answer", "synthesize")
 
-    builder.add_edge("rewrite", "synthesize")
-
-    # --- human_checkpoint → generate_report → END ---
-    builder.add_edge("human_checkpoint", "generate_report")
-    builder.add_edge("generate_report", END)
+    # Fin
+    builder.add_edge("format_response", END)
 
     # --- Compilación ---
     compile_kwargs = {}
     if checkpointer is not None:
         compile_kwargs["checkpointer"] = checkpointer
 
-    graph = builder.compile(
-        interrupt_before=["human_checkpoint"],
+    return builder.compile(
+        interrupt_before=["clarification_request"],
         **compile_kwargs,
     )
-
-    return graph
