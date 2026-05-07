@@ -38,3 +38,8 @@ data/sources/enterprise/enron/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code / agent tooling
+.claude/
+.claude-flow/
+.swarm/
