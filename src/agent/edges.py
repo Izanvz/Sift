@@ -21,10 +21,24 @@ def route_after_relevance(state: SiftState) -> str:
 
 
 def route_after_critique(state: SiftState) -> str:
-    """Decide si reescribir la respuesta o dar por buena."""
-    score = state.get("critique", {}).get("score", 10.0)
+    """Decide si reescribir la respuesta o dar por buena.
+
+    Reescribe si:
+    - score general < quality_gate_score  (defecto 8.0/10), O
+    - faithfulness < faithfulness_hard_gate (defecto 6.0/10) — siempre corregir hallucinations
+
+    Límite: max_rewrite_iterations para evitar bucle infinito.
+    """
+    critique = state.get("critique", {})
+    score = critique.get("score", 10.0)
+    faithfulness = critique.get("faithfulness", 10.0)
     rewrite_iterations = state.get("rewrite_iterations", 0)
 
-    if score < settings.quality_gate_score and rewrite_iterations < settings.max_rewrite_iterations:
+    needs_rewrite = (
+        score < settings.quality_gate_score
+        or faithfulness < settings.faithfulness_hard_gate
+    )
+
+    if needs_rewrite and rewrite_iterations < settings.max_rewrite_iterations:
         return "rewrite_answer"
     return "format_response"

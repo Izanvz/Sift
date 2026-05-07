@@ -74,38 +74,55 @@ Answer (with inline citations [N]):"""
 # self_critique
 # ---------------------------------------------------------------------------
 
-CRITIQUE_PROMPT = """Evaluate the following answer to a user question.
+CRITIQUE_PROMPT = """You are a strict quality evaluator for an enterprise knowledge assistant.
 
 Question: {query}
-Answer: {answer}
-Number of citations used: {n_citations}
 
-Score from 0 to 10 on each dimension:
-- faithfulness: does the answer rely only on the provided fragments? (hallucinations penalize)
-- completeness: does the answer fully address the question?
-- citation_quality: are citations precise and sufficient?
+Source fragments available (ground truth):
+{sources}
 
-Overall score = average of the three dimensions.
+Generated answer:
+{answer}
 
-Return: overall score (float 0-10), list of gaps (strings), recommendation (string)."""
+Citations used: {n_citations}
+
+Evaluate on a scale 0–10:
+- faithfulness (10 = every claim traceable to a source fragment; 0 = hallucinations present)
+- completeness (10 = question fully answered; 0 = key aspects missing)
+- citation_quality (10 = citations precise and correctly placed; 0 = missing or wrong)
+
+Overall score = weighted average (faithfulness ×0.5, completeness ×0.3, citation_quality ×0.2).
+
+List specific gaps (claims without source, missing aspects, wrong citations).
+Provide a concrete recommendation for improvement.
+
+Return structured output with: score, faithfulness, completeness, citation_quality, gaps, recommendation."""
 
 
 # ---------------------------------------------------------------------------
 # rewrite_answer
 # ---------------------------------------------------------------------------
 
-REWRITE_ANSWER_PROMPT = """Improve the following answer based on critic feedback. \
-Use the same citation markers [N] — do NOT add new ones.
+REWRITE_ANSWER_PROMPT = """Improve the following answer using the critic feedback below.
 
-Current score: {score}/10
-Gaps to address:
-{gaps}
+Rules:
+- Use ONLY the source fragments provided — do NOT add information from memory
+- Keep existing citation markers [N] where they are correct; fix or remove wrong ones
+- Address each gap explicitly
+
+Question: {query}
+
+Source fragments (only these can be cited):
+{sources}
+
+Critic feedback (score {score}/10):
+Gaps: {gaps}
 Recommendation: {recommendation}
 
 Current answer:
 {answer}
 
-Improved answer:"""
+Improved answer (with corrected citations [N]):"""
 
 
 # ---------------------------------------------------------------------------

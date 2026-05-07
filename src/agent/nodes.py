@@ -226,19 +226,36 @@ def synthesize(state: SiftState) -> dict:
 # ---------------------------------------------------------------------------
 
 def self_critique(state: SiftState) -> dict:
+    chunks = state.get("chunks", [])[:settings.synthesis_top_k]
+    sources = _format_chunks_for_prompt(chunks) or "(no sources retrieved)"
+
     prompt = CRITIQUE_PROMPT.format(
         query=state["query"],
+        sources=sources,
         answer=state.get("answer", ""),
         n_citations=len(state.get("citations", [])),
     )
-    critique: CritiqueOutput = _instructor_client.chat.completions.create(
-        model=settings.model_synthesis,
-        response_model=CritiqueOutput,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        critique: CritiqueOutput = _instructor_client.chat.completions.create(
+            model=settings.model_synthesis,
+            response_model=CritiqueOutput,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        critique_dict = critique.model_dump()
+    except Exception as exc:
+        logger.warning("self_critique LLM failed: %s — using neutral score", exc)
+        critique_dict = {
+            "score": 5.0,
+            "faithfulness": 5.0,
+            "completeness": 5.0,
+            "citation_quality": 5.0,
+            "gaps": [],
+            "recommendation": "Could not evaluate automatically.",
+        }
+
     rewrite_iterations = state.get("rewrite_iterations", 0) + 1
     return {
-        "critique": critique.model_dump(),
+        "critique": critique_dict,
         "rewrite_iterations": rewrite_iterations,
     }
 
@@ -248,16 +265,26 @@ def self_critique(state: SiftState) -> dict:
 # ---------------------------------------------------------------------------
 
 def rewrite_answer(state: SiftState) -> dict:
+    from src.agent.citations import build_citations  # import local
+
+    chunks = state.get("chunks", [])[:settings.synthesis_top_k]
+    sources = _format_chunks_for_prompt(chunks) or "(no sources)"
     critique = state.get("critique", {})
-    gaps_text = "\n".join(f"- {g}" for g in critique.get("gaps", []))
+    gaps_text = "\n".join(f"- {g}" for g in critique.get("gaps", [])) or "None identified."
+
     prompt = REWRITE_ANSWER_PROMPT.format(
+        query=state["query"],
+        sources=sources,
         score=critique.get("score", 0),
         gaps=gaps_text,
         recommendation=critique.get("recommendation", ""),
         answer=state.get("answer", ""),
     )
     improved = _llm.invoke(prompt)
-    return {"answer": improved}
+
+    # Reconstruir citations desde el answer reescrito
+    citations = build_citations(improved, chunks)
+    return {"answer": improved, "citations": citations}
 
 
 # ---------------------------------------------------------------------------

@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     # --- Ciclos del grafo ---
     max_search_iterations: int = 2      # Máximo de rewrites de query
     max_rewrite_iterations: int = 2     # Máximo de rewrites de respuesta
-    quality_gate_score: float = 8.0     # Score mínimo del critique para no reescribir
+    quality_gate_score: float = 8.0          # Score mínimo del critique para no reescribir
+    faithfulness_hard_gate: float = 6.0      # Faithfulness mínima — siempre reescribir si falla
 
     # --- Chunking ---
     chunk_size_tokens: int = 512
