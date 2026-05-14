@@ -115,9 +115,6 @@ class HybridRetriever:
             ],
         }
 
-        if not bm25_results and not vector_results:
-            debug = {"query": query, "bm25_top": [], "vector_top": [], "rrf_top": [], "final_top": []}
-
         return reranked, debug
 
     def _run_pipeline(

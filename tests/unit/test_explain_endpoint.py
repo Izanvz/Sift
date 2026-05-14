@@ -85,3 +85,25 @@ def test_explain_404_if_no_debug(app_with_checkpoint):
 
     resp = TestClient(app).get("/research/sess123/explain")
     assert resp.status_code == 404
+
+
+def test_explain_admin_can_read_other_session(app_with_checkpoint):
+    from fastapi import FastAPI
+    from src.api.explain_routes import router
+    from src.auth.dependencies import get_current_user
+    from src.auth.models import TokenData
+
+    app = FastAPI()
+    app.include_router(router, prefix="/research")
+
+    checkpointer = MagicMock()
+    app.state.checkpointer = checkpointer
+    checkpointer.get.return_value = {"channel_values": _make_state(user_id="other_user")}
+
+    def override_admin():
+        return TokenData(sub="admin", username="admin", scopes=["*"], is_admin=True)
+
+    app.dependency_overrides[get_current_user] = override_admin
+
+    resp = TestClient(app).get("/research/sess123/explain")
+    assert resp.status_code == 200
