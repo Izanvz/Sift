@@ -537,6 +537,22 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    /* CITATION BADGES */
+    .cite-type-badge {
+      display: inline-block;
+      font-size: 0.6rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-left: 6px; vertical-align: middle;
+    }
+    .cite-badge-pdf      { background: var(--red-bg);    color: var(--red); }
+    .cite-badge-markdown { background: var(--blue-bg);   color: var(--blue); }
+    .cite-badge-code     { background: var(--green-bg);  color: var(--green); }
+    .cite-badge-email    { background: var(--yellow-bg); color: var(--yellow); }
+    .cite-badge-unknown  { background: var(--bg3);       color: var(--text3); }
+    .cite-score { font-size: 0.65rem; color: var(--text3); margin-top: 3px; }
+    .cite-score span { color: var(--green); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -987,26 +1003,78 @@ function renderAnswer(text) {
   document.getElementById('answer-container').innerHTML = marked.parse(text);
 }
 
+function _citeTypeBadge(sourceType) {
+  const t = (sourceType || 'unknown').toLowerCase();
+  const valid = ['pdf','markdown','code','email'];
+  const cls = valid.includes(t) ? `cite-badge-${t}` : 'cite-badge-unknown';
+  const el = document.createElement('span');
+  el.className = `cite-type-badge ${cls}`;
+  el.textContent = t;
+  return el;
+}
+
 function renderCitations(citations) {
   const container = document.getElementById('citations-container');
   if (!citations?.length) {
-    container.innerHTML = '<div class="panel-empty">No se detectaron citas en la respuesta.</div>';
+    container.textContent = '';
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'No se detectaron citas en la respuesta.';
+    container.appendChild(empty);
     return;
   }
-  container.innerHTML = '';
+  container.textContent = '';
   citations.forEach((c, i) => {
     const card = document.createElement('div');
     card.className = 'citation-card';
-    const loc = c.page_number ? `pág. ${c.page_number}` : (c.line_start ? `líneas ${c.line_start}–${c.line_end || '?'}` : '');
-    const snippet = c.snippet ? `<div class="cite-snippet">"${esc(c.snippet)}"</div>` : '';
-    card.innerHTML = `
-      <span class="cite-num">[${i + 1}]</span>
-      <div class="cite-source">${esc(c.source_path || '—')}<span class="cite-type">${esc(c.source_type || '')}</span></div>
-      ${loc ? `<div class="cite-loc">${esc(loc)}</div>` : ''}
-      ${snippet}`;
+    card.id = `cite-${i + 1}`;
+
+    // Header: num + source + badge
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:4px';
+    const num = document.createElement('span');
+    num.className = 'cite-num';
+    num.textContent = `[${i + 1}]`;
+    const srcEl = document.createElement('div');
+    srcEl.className = 'cite-source';
+    srcEl.style.flex = '1';
+    srcEl.textContent = c.source_path || '—';
+    srcEl.appendChild(_citeTypeBadge(c.source_type));
+    header.append(num, srcEl);
+    card.appendChild(header);
+
+    // Location
+    const loc = c.page_number
+      ? `pág. ${c.page_number}`
+      : (c.line_start ? `líneas ${c.line_start}–${c.line_end || '?'}` : '');
+    if (loc) {
+      const locEl = document.createElement('div');
+      locEl.className = 'cite-loc';
+      locEl.textContent = loc;
+      card.appendChild(locEl);
+    }
+
+    // Snippet
+    if (c.snippet) {
+      const snip = document.createElement('div');
+      snip.className = 'cite-snippet';
+      snip.textContent = `"${c.snippet}"`;
+      card.appendChild(snip);
+    }
+
+    // Score
+    if (typeof c.relevance_score === 'number') {
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'cite-score';
+      scoreEl.appendChild(document.createTextNode('Score: '));
+      const s = document.createElement('span');
+      s.textContent = c.relevance_score.toFixed(3);
+      scoreEl.appendChild(s);
+      card.appendChild(scoreEl);
+    }
+
     container.appendChild(card);
   });
-  // Badge on tab
   document.querySelectorAll('.tab-btn')[1].textContent = `Citas (${citations.length})`;
 }
 
