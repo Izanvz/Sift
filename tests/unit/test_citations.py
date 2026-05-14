@@ -169,7 +169,7 @@ def test_build_citations_snippet_truncated():
     chunk = _chunk(1)
     chunk["content"] = long_content
     citations = build_citations("[1]", [chunk])
-    assert len(citations[0]["snippet"]) <= 210  # 200 chars + posible "…"
+    assert len(citations[0]["snippet"]) <= 401  # 400 chars + posible "…"
     assert citations[0]["snippet"].endswith("…")
 
 
@@ -185,3 +185,10 @@ def test_build_citations_preserves_relevance_score():
     chunk["relevance_score"] = 0.95
     citations = build_citations("[1]", [chunk])
     assert citations[0]["relevance_score"] == 0.95
+
+
+def test_snippet_default_400_chars():
+    long_content = "word " * 120  # 600 chars
+    snippet = _extract_snippet(long_content)
+    assert len(snippet) <= 401
+    assert snippet[-1] in ("…", ".")

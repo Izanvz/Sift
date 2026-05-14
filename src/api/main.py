@@ -38,9 +38,11 @@ app.add_middleware(AuditMiddleware)
 
 from src.api.audit_routes import router as audit_router  # noqa: E402
 from src.api.auth_routes import router as auth_router  # noqa: E402
+from src.api.explain_routes import router as explain_router  # noqa: E402
 from src.api.routes import router  # noqa: E402
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(audit_router, prefix="/audit", tags=["audit"])
 app.include_router(router, prefix="/research", tags=["research"])
+app.include_router(explain_router, prefix="/research", tags=["research"])
 app.mount("/", StaticFiles(directory="src/api/static", html=True), name="static")

@@ -61,18 +61,84 @@ class HybridRetriever:
         Returns:
             Lista de docs ordenados por relevance_score desc.
         """
+        _, _, _, reranked = self._run_pipeline(query, top_k, candidates, where)
+        return reranked
+
+    def retrieve_with_explain(
+        self,
+        query: str,
+        top_k: int = 5,
+        candidates: int | None = None,
+        where: dict | None = None,
+    ) -> tuple[list[dict], dict]:
+        """Pipeline híbrido completo con debug de cada etapa.
+
+        Returns:
+            (docs, debug) donde docs es idéntico a retrieve() y debug
+            contiene bm25_top, vector_top, rrf_top, final_top.
+        """
+        bm25_results, vector_results, fused, reranked = self._run_pipeline(
+            query, top_k, candidates, where
+        )
+
+        def _preview(doc: dict) -> dict:
+            meta = doc.get("metadata", {}) or {}
+            return {
+                "id": doc.get("id", ""),
+                "content_preview": doc.get("content", "")[:200],
+                "source_path": doc.get("source_path") or meta.get("source_path", ""),
+                "source_type": doc.get("source_type") or meta.get("source_type", ""),
+            }
+
+        debug = {
+            "query": query,
+            "bm25_top": [
+                {**_preview(d), "bm25_score": d.get("bm25_score", 0.0)}
+                for d in bm25_results[:5]
+            ],
+            "vector_top": [
+                {**_preview(d), "relevance_score": d.get("relevance_score", 0.0)}
+                for d in vector_results[:5]
+            ],
+            "rrf_top": [
+                {**_preview(d), "rrf_score": d.get("rrf_score", 0.0), "rrf_rank": d.get("rrf_rank", i + 1)}
+                for i, d in enumerate(fused[:10])
+            ],
+            "final_top": [
+                {
+                    **_preview(d),
+                    "relevance_score": d.get("relevance_score", 0.0),
+                    "rerank_score": d.get("rerank_score"),
+                    "rrf_score": d.get("rrf_score"),
+                }
+                for d in reranked
+            ],
+        }
+
+        return reranked, debug
+
+    def _run_pipeline(
+        self,
+        query: str,
+        top_k: int,
+        candidates: int | None,
+        where: dict | None,
+    ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+        """Ejecuta el pipeline completo y devuelve resultados intermedios.
+
+        Returns:
+            (bm25_results, vector_results, fused, reranked)
+        """
         n_candidates = candidates or settings.retrieval_top_k
 
-        # 1. Búsqueda paralela
         bm25_results, vector_results = self._search_parallel(query, where)
         logger.info(
             "Hybrid: bm25=%d, vector=%d, query=%r",
             len(bm25_results), len(vector_results), query[:80],
         )
 
-        # 2. RRF fusion
         if not bm25_results and not vector_results:
-            return []
+            return [], [], [], []
 
         fused = reciprocal_rank_fusion(
             [bm25_results, vector_results],
@@ -81,17 +147,12 @@ class HybridRetriever:
             top_k=n_candidates,
         )
 
-        # 3. Reranker
         reranked = self.reranker.rerank(query, fused, top_k=top_k)
 
-        # 4. Normalizar score final
         for doc in reranked:
-            doc["relevance_score"] = doc.get(
-                "rerank_score",
-                doc.get("rrf_score", 0.0),
-            )
+            doc["relevance_score"] = doc.get("rerank_score", doc.get("rrf_score", 0.0))
 
-        return reranked
+        return bm25_results, vector_results, fused, reranked
 
     def _search_parallel(
         self, query: str, where: dict | None

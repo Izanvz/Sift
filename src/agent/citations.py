@@ -25,7 +25,7 @@ def extract_citation_indices(answer: str) -> list[int]:
     return sorted(found)
 
 
-def _extract_snippet(content: str, max_chars: int = 200) -> str:
+def _extract_snippet(content: str, max_chars: int = 400) -> str:
     """Toma las primeras max_chars del chunk como snippet."""
     snippet = content.strip()
     if len(snippet) > max_chars:

@@ -121,6 +121,9 @@ class AuditStore:
         self,
         user_id: str | None = None,
         event_type: str | None = None,
+        status: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -132,6 +135,15 @@ class AuditStore:
         if event_type:
             clauses.append("event_type = ?")
             params.append(event_type)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if date_from:
+            clauses.append("created_at >= ?")
+            params.append(date_from)
+        if date_to:
+            clauses.append("created_at <= ?")
+            params.append(date_to)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         params += [limit, offset]
         sql = f"SELECT * FROM audit_events {where} ORDER BY id DESC LIMIT ? OFFSET ?"
@@ -147,6 +159,23 @@ class AuditStore:
         return self._conn().execute(
             "SELECT COUNT(*) AS n FROM audit_events"
         ).fetchone()["n"]
+
+    def stats(self) -> dict:
+        """Estadísticas globales: total, media latencia, media critique."""
+        row = self._conn().execute(
+            """
+            SELECT
+                COUNT(*) AS total_events,
+                AVG(latency_ms) AS latency_ms_mean,
+                AVG(critique_score) AS critique_score_mean
+            FROM audit_events
+            """
+        ).fetchone()
+        return {
+            "total_events": row["total_events"],
+            "latency_ms_mean": row["latency_ms_mean"],
+            "critique_score_mean": row["critique_score_mean"],
+        }
 
 
 # ---------------------------------------------------------------------------

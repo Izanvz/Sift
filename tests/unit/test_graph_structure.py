@@ -32,7 +32,7 @@ def test_sift_state_keys():
     """SiftState debe tener todos los campos definidos en el roadmap."""
     required_keys = {
         "query", "user_id", "scopes", "is_admin", "query_type",
-        "chunks", "relevance_scores", "iterations",
+        "chunks", "relevance_scores", "iterations", "retrieval_debug",
         "answer", "citations",
         "critique", "rewrite_iterations",
         "clarification", "metadata",

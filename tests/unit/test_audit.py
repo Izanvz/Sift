@@ -109,3 +109,46 @@ def test_extract_bearer_missing():
     class FakeRequest:
         headers = {}
     assert _extract_bearer(FakeRequest()) is None
+
+
+def test_store_query_filter_status(store):
+    store.log(event_type="research_end", status="ok")
+    store.log(event_type="research_end", status="error")
+    rows = store.query_events(status="ok")
+    assert len(rows) == 1
+    assert rows[0]["status"] == "ok"
+
+
+def test_store_query_filter_date_from(store):
+    store.log(event_type="e", user_id="u1")
+    rows = store.query_events(date_from="2020-01-01T00:00:00+00:00")
+    assert len(rows) == 1
+
+
+def test_store_query_filter_date_to(store):
+    store.log(event_type="e", user_id="u1")
+    rows = store.query_events(date_to="2099-01-01T00:00:00+00:00")
+    assert len(rows) == 1
+
+
+def test_store_query_filter_date_excludes(store):
+    store.log(event_type="e", user_id="u1")
+    rows = store.query_events(date_from="2099-01-01T00:00:00+00:00")
+    assert len(rows) == 0
+
+
+def test_store_stats_empty(store):
+    result = store.stats()
+    assert result["total_events"] == 0
+    assert result["latency_ms_mean"] is None
+    assert result["critique_score_mean"] is None
+
+
+def test_store_stats_with_data(store):
+    store.log(event_type="research_end", latency_ms=100.0, critique_score=8.0)
+    store.log(event_type="research_end", latency_ms=200.0, critique_score=6.0)
+    store.log(event_type="auth_login")  # sin latency ni critique
+    result = store.stats()
+    assert result["total_events"] == 3
+    assert result["latency_ms_mean"] == pytest.approx(150.0)
+    assert result["critique_score_mean"] == pytest.approx(7.0)
