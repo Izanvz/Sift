@@ -908,6 +908,7 @@ let token = sessionStorage.getItem('sift_token') || null;
 window._authToken = token;
 let currentUser = null;
 let currentSessionId = null;
+let activeDrawerTab = 'pipeline';
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 async function doLogin() {
@@ -1009,29 +1010,44 @@ async function init() {
 }
 
 // ── Drawer toggle ─────────────────────────────────────────────────────────
-function toggleDrawer(name) {
+function toggleDrawer(tabName) {
   const drawer = document.getElementById('drawer');
-  const currentActive = document.querySelector('.dtab.active');
-  const clickedTab = document.getElementById(`dtab-${name}`);
-  const currentPanel = document.querySelector('.dpanel.active');
+  const isSameTab = activeDrawerTab === tabName;
+  const isOpen = drawer.classList.contains('open');
 
-  // If same tab clicked and drawer is open → close
-  if (currentActive === clickedTab && drawer.classList.contains('open')) {
+  if (isOpen && isSameTab) {
     drawer.classList.remove('open');
-    return;
+  } else {
+    drawer.classList.add('open');
+    activeDrawerTab = tabName;
+    // hide all dpanels
+    document.querySelectorAll('.dpanel').forEach(p => p.classList.remove('active'));
+    // show target panel
+    const target = document.getElementById('dpanel-' + tabName);
+    if (target) target.classList.add('active');
+    // update tab active state
+    document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+    const activeBtn = document.getElementById('dtab-' + tabName);
+    if (activeBtn) activeBtn.classList.add('active');
+    // auto-load on tab switch
+    if (tabName === 'sessions') loadSessions();
+    if (tabName === 'audit' && window._authToken) loadAudit();
   }
-
-  // Open drawer and switch panel
-  drawer.classList.add('open');
-  document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
-  clickedTab.classList.add('active');
-  document.querySelectorAll('.dpanel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`dpanel-${name}`).classList.add('active');
 }
 
-// ── Char counter ─────────────────────────────────────────────────────────
+// ── Char counter + auto-resize ────────────────────────────────────────────
 document.getElementById('query').addEventListener('input', function() {
-  document.getElementById('char-count').textContent = this.value.length;
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  const count = document.getElementById('char-count');
+  if (count) count.textContent = this.value.length;
+});
+
+document.getElementById('query').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    startResearch();
+  }
 });
 
 // ── Node state ────────────────────────────────────────────────────────────
@@ -1063,39 +1079,75 @@ function log(msg, type = 'info') {
   el.scrollTop = el.scrollHeight;
 }
 
+// ── Chat message helpers ───────────────────────────────────────────────────
+function addUserMessage(query) {
+  document.getElementById('welcome').style.display = 'none';
+  const area = document.getElementById('chat-area');
+  const msg = document.createElement('div');
+  msg.className = 'chat-message user';
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = 'Tú';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-query';
+  bubble.textContent = query;
+  msg.appendChild(meta);
+  msg.appendChild(bubble);
+  area.appendChild(msg);
+  area.scrollTop = area.scrollHeight;
+  return msg;
+}
+
+function addAssistantMessage() {
+  const area = document.getElementById('chat-area');
+  const msg = document.createElement('div');
+  msg.className = 'chat-message assistant';
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = 'Sift';
+  const statusEl = document.createElement('div');
+  statusEl.className = 'msg-status';
+  const pulse = document.createElement('span');
+  pulse.className = 'pulse';
+  statusEl.appendChild(pulse);
+  statusEl.appendChild(document.createTextNode(' Generando…'));
+  const answerEl = document.createElement('div');
+  answerEl.className = 'msg-answer';
+  msg.appendChild(meta);
+  msg.appendChild(statusEl);
+  msg.appendChild(answerEl);
+  area.appendChild(msg);
+  area.scrollTop = area.scrollHeight;
+  return msg;
+}
+
 // ── Research ──────────────────────────────────────────────────────────────
 async function startResearch() {
   const query = document.getElementById('query').value.trim();
   if (!query) { document.getElementById('query').focus(); return; }
 
+  // Clear textarea and reset height
+  const queryEl = document.getElementById('query');
+  queryEl.value = '';
+  queryEl.style.height = 'auto';
+  document.getElementById('char-count').textContent = '0';
+
+  // Add chat messages
+  addUserMessage(query);
+  window._currentAssistantMsg = addAssistantMessage();
+
+  // Open log drawer
+  toggleDrawer('log');
+
   const btn = document.getElementById('send-btn');
   btn.disabled = true;
 
+  // Reset pipeline and log
+  if (typeof resetNodes === 'function') resetNodes();
   document.getElementById('log-entries').textContent = '';
   document.getElementById('citations-container').innerHTML = '<div class="panel-empty">Recuperando fuentes...</div>';
   document.getElementById('critique-container').innerHTML = '<div class="panel-empty">Evaluando...</div>';
   document.getElementById('retrieval-container').innerHTML = '<div class="panel-empty">Cargando debug de retrieval...</div>';
-  resetNodes();
-
-  // Add user message to chat
-  const chatArea = document.getElementById('chat-area');
-  const welcome = document.getElementById('welcome');
-  if (welcome) welcome.remove();
-  const userMsg = document.createElement('div');
-  userMsg.className = 'chat-message user';
-  const userMeta = document.createElement('div');
-  userMeta.className = 'msg-meta';
-  userMeta.textContent = currentUser?.username || 'Tú';
-  const userQ = document.createElement('div');
-  userQ.className = 'msg-query';
-  userQ.textContent = query;
-  userMsg.append(userMeta, userQ);
-  chatArea.appendChild(userMsg);
-  chatArea.scrollTop = chatArea.scrollHeight;
-
-  // Clear query input
-  document.getElementById('query').value = '';
-  document.getElementById('char-count').textContent = '0';
 
   const shortQ = query.slice(0, 70) + (query.length > 70 ? '…' : '');
   log('Consulta: "' + shortQ + '"');
@@ -1164,6 +1216,7 @@ function handleSSE(data) {
     log('✓ Completado', 'done');
     if (data.report) renderAnswer(data.report);
     fetchFinalState(currentSessionId);
+    setTimeout(() => toggleDrawer('pipeline'), 800);
     return;
   }
   if (status === 'error') {
@@ -1238,27 +1291,16 @@ function _linkifyCitationMarkers(container) {
 }
 
 function renderAnswer(text) {
-  const chatArea = document.getElementById('chat-area');
-  // Remove welcome screen if present
-  const welcome = document.getElementById('welcome');
-  if (welcome) welcome.remove();
-  // Find existing assistant message or create one
-  let msgEl = chatArea.querySelector('.chat-message.assistant:last-child');
-  if (!msgEl) {
-    msgEl = document.createElement('div');
-    msgEl.className = 'chat-message assistant';
-    const meta = document.createElement('div');
-    meta.className = 'msg-meta';
-    meta.textContent = 'Sift';
-    const answer = document.createElement('div');
-    answer.className = 'msg-answer';
-    msgEl.append(meta, answer);
-    chatArea.appendChild(msgEl);
+  if (window._currentAssistantMsg) {
+    const statusEl = window._currentAssistantMsg.querySelector('.msg-status');
+    if (statusEl) statusEl.style.display = 'none';
+    const answerEl = window._currentAssistantMsg.querySelector('.msg-answer');
+    if (answerEl) {
+      answerEl.innerHTML = marked.parse(text);
+      _linkifyCitationMarkers(answerEl);
+    }
+    document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight;
   }
-  const answerEl = msgEl.querySelector('.msg-answer');
-  answerEl.innerHTML = marked.parse(text);
-  _linkifyCitationMarkers(answerEl);
-  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 function _citeTypeBadge(sourceType) {
