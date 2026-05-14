@@ -93,6 +93,74 @@ class HybridRetriever:
 
         return reranked
 
+    def retrieve_with_explain(
+        self,
+        query: str,
+        top_k: int = 5,
+        candidates: int | None = None,
+        where: dict | None = None,
+    ) -> tuple[list[dict], dict]:
+        """Pipeline hibrido completo con debug de cada etapa.
+
+        Returns:
+            (docs, debug) donde docs es identico a retrieve() y debug
+            contiene bm25_top, vector_top, rrf_top, final_top.
+        """
+        n_candidates = candidates or settings.retrieval_top_k
+
+        bm25_results, vector_results = self._search_parallel(query, where)
+
+        if not bm25_results and not vector_results:
+            return [], {"query": query, "bm25_top": [], "vector_top": [], "rrf_top": [], "final_top": []}
+
+        fused = reciprocal_rank_fusion(
+            [bm25_results, vector_results],
+            k=self.rrf_k,
+            id_key="id",
+            top_k=n_candidates,
+        )
+
+        reranked = self.reranker.rerank(query, fused, top_k=top_k)
+
+        for doc in reranked:
+            doc["relevance_score"] = doc.get("rerank_score", doc.get("rrf_score", 0.0))
+
+        def _preview(doc: dict) -> dict:
+            meta = doc.get("metadata", {}) or {}
+            return {
+                "id": doc.get("id", ""),
+                "content_preview": doc.get("content", "")[:200],
+                "source_path": doc.get("source_path") or meta.get("source_path", ""),
+                "source_type": doc.get("source_type") or meta.get("source_type", ""),
+            }
+
+        debug = {
+            "query": query,
+            "bm25_top": [
+                {**_preview(d), "bm25_score": d.get("bm25_score", 0.0)}
+                for d in bm25_results[:5]
+            ],
+            "vector_top": [
+                {**_preview(d), "relevance_score": d.get("relevance_score", 0.0)}
+                for d in vector_results[:5]
+            ],
+            "rrf_top": [
+                {**_preview(d), "rrf_score": d.get("rrf_score", 0.0), "rrf_rank": d.get("rrf_rank", i + 1)}
+                for i, d in enumerate(fused[:10])
+            ],
+            "final_top": [
+                {
+                    **_preview(d),
+                    "relevance_score": d.get("relevance_score", 0.0),
+                    "rerank_score": d.get("rerank_score"),
+                    "rrf_score": d.get("rrf_score"),
+                }
+                for d in reranked
+            ],
+        }
+
+        return reranked, debug
+
     def _search_parallel(
         self, query: str, where: dict | None
     ) -> tuple[list[dict], list[dict]]:
