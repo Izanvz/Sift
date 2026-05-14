@@ -55,6 +55,11 @@ class CritiqueOutput(BaseModel):
     recommendation: str
 
 
+class HumanFeedback(BaseModel):
+    """Respuesta del usuario a una petición de clarificación."""
+    clarification: str
+
+
 # ---------------------------------------------------------------------------
 # Estado principal del grafo
 # ---------------------------------------------------------------------------
