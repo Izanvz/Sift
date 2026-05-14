@@ -6,34 +6,37 @@
   <title>Sift</title>
   <!-- vendored locally — no external requests -->
   <script src="/vendor/marked.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0a0f1e;
-      --bg2:       #111827;
-      --bg3:       #1e293b;
-      --bg4:       #273549;
-      --border:    #1e293b;
-      --border2:   #334155;
-      --text:      #e2e8f0;
-      --text2:     #94a3b8;
-      --text3:     #64748b;
-      --accent:    #6366f1;
-      --accent2:   #4f46e5;
-      --green:     #22c55e;
-      --green-bg:  #14532d;
+      --bg:        #080810;
+      --bg2:       #0f0f1a;
+      --bg3:       #161625;
+      --bg4:       #1e1e30;
+      --border:    #1a1a28;
+      --border2:   #252538;
+      --text:      #f0f0f8;
+      --text1:     #f0f0f8;
+      --text2:     #8888aa;
+      --text3:     #555570;
+      --accent:    #7c6af7;
+      --accent2:   #6355e0;
+      --green:     #34d399;
+      --green-bg:  #064e3b;
       --yellow:    #fbbf24;
       --yellow-bg: #78350f;
       --blue:      #60a5fa;
       --blue-bg:   #1e3a5f;
       --red:       #f87171;
       --red-bg:    #4c1d1d;
-      --purple:    #a5b4fc;
+      --purple:    #c4b5fd;
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
@@ -104,14 +107,8 @@
 
     /* ── HEADER ── */
     header {
-      padding: 0 20px;
-      height: 52px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--bg2);
-      flex-shrink: 0;
+      padding: 0 20px; height: 48px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px; background: var(--bg2); flex-shrink: 0;
     }
     .header-logo { display: flex; align-items: center; gap: 10px; }
     .header-logo svg { width: 22px; height: 22px; color: var(--accent); }
@@ -584,6 +581,154 @@
     .audit-event-row.header { color: var(--text3); font-size: 0.7rem; }
     .audit-status-ok  { color: var(--green); }
     .audit-status-error { color: var(--red); }
+
+    /* ── APP BODY ── */
+    .app-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── CHAT AREA ── */
+    .chat-area {
+      flex: 1; overflow-y: auto; padding: 32px 24px;
+      max-width: 820px; margin: 0 auto; width: 100%;
+      scroll-behavior: smooth;
+    }
+    .chat-area::-webkit-scrollbar { width: 4px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    /* ── WELCOME SCREEN ── */
+    .welcome {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; text-align: center; gap: 16px; color: var(--text2);
+      padding: 40px;
+    }
+    .welcome svg { width: 48px; height: 48px; color: var(--accent); opacity: 0.7; }
+    .welcome h2 { font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.04em; line-height: 1.2; }
+    .welcome p { font-size: 0.9rem; color: var(--text3); max-width: 400px; line-height: 1.6; }
+
+    /* ── CHAT MESSAGES ── */
+    .chat-message { margin-bottom: 28px; }
+    .chat-message .msg-meta {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chat-message.user .msg-meta { justify-content: flex-end; }
+    .chat-message.user .msg-query {
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 12px 12px 4px 12px; padding: 14px 18px;
+      font-size: 0.9rem; color: var(--text); line-height: 1.6;
+      margin-left: auto; max-width: 80%; width: fit-content;
+    }
+    .chat-message.assistant .msg-status {
+      font-size: 0.78rem; color: var(--text3); display: flex; align-items: center; gap: 6px;
+      margin-bottom: 12px;
+    }
+    .chat-message.assistant .msg-status .pulse {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .chat-message.assistant .msg-answer {
+      font-size: 0.87rem; line-height: 1.75; color: var(--text);
+    }
+    .chat-message.assistant .msg-answer h1,
+    .chat-message.assistant .msg-answer h2,
+    .chat-message.assistant .msg-answer h3 {
+      font-weight: 700; letter-spacing: -0.02em; margin: 1.2em 0 0.5em; color: var(--text);
+    }
+    .chat-message.assistant .msg-answer h1 { font-size: 1.3rem; }
+    .chat-message.assistant .msg-answer h2 { font-size: 1.1rem; }
+    .chat-message.assistant .msg-answer h3 { font-size: 0.95rem; }
+    .chat-message.assistant .msg-answer p { margin-bottom: 0.9em; }
+    .chat-message.assistant .msg-answer code {
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px;
+      padding: 1px 6px; font-size: 0.82em; font-family: 'Fira Code', monospace;
+    }
+    .chat-message.assistant .msg-answer pre {
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; margin: 0.8em 0;
+    }
+    .chat-message.assistant .msg-answer pre code { background: none; border: none; padding: 0; }
+    .chat-message.assistant .msg-answer blockquote {
+      border-left: 3px solid var(--accent); padding-left: 14px;
+      color: var(--text2); margin: 0.8em 0;
+    }
+    .chat-message.assistant .msg-answer ul, .chat-message.assistant .msg-answer ol {
+      padding-left: 1.4em; margin-bottom: 0.8em;
+    }
+    .chat-message.assistant .msg-answer li { margin-bottom: 0.3em; }
+
+    /* ── DRAWER ── */
+    .drawer { border-top: 1px solid var(--border2); flex-shrink: 0; background: var(--bg2); }
+    .drawer-handle {
+      display: flex; align-items: center; background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto; overflow-y: hidden;
+    }
+    .drawer-handle::-webkit-scrollbar { height: 2px; }
+    .dtab {
+      padding: 9px 14px; font-size: 0.65rem; font-weight: 700;
+      color: var(--text3); background: none; border: none;
+      border-bottom: 2px solid transparent; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      white-space: nowrap; flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .dtab:hover { color: var(--text2); }
+    .dtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .drawer-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1);
+      background: var(--bg2);
+    }
+    .drawer.open .drawer-body { max-height: 240px; overflow-y: auto; }
+    .drawer-body::-webkit-scrollbar { width: 4px; }
+    .drawer-body::-webkit-scrollbar-track { background: transparent; }
+    .drawer-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    .dpanel { display: none; padding: 12px 16px; }
+    .dpanel.active { display: block; }
+
+    /* ── CHAT INPUT BAR ── */
+    .chat-input-wrap {
+      border-top: 1px solid var(--border); background: var(--bg2); flex-shrink: 0;
+    }
+    .chat-input-bar {
+      padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end;
+      max-width: 820px; margin: 0 auto; width: 100%;
+    }
+    #query {
+      flex: 1; min-height: 44px; max-height: 120px; resize: none;
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+      padding: 12px 14px; color: var(--text); font-size: 0.88rem; outline: none;
+      font-family: inherit; line-height: 1.5; overflow-y: auto;
+      transition: border-color 0.2s;
+    }
+    #query::placeholder { color: var(--text3); }
+    #query:focus { border-color: var(--accent); }
+    #send-btn {
+      width: 44px; height: 44px; flex-shrink: 0;
+      background: var(--accent); color: #fff; border: none; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--accent2); }
+    #send-btn:active:not(:disabled) { transform: scale(0.95); }
+    #send-btn:disabled { background: var(--bg4); cursor: not-allowed; }
+    #send-btn svg { width: 18px; height: 18px; }
+    .char-count { font-size: 0.62rem; color: var(--text3); text-align: right; padding: 0 16px 8px; }
+
+    /* ── PIPELINE / LOG panels in drawer ── */
+    .graph-section { padding: 8px 0; }
+    .log-section { padding: 4px 0; }
+    .log-entry {
+      font-family: 'Fira Code', 'Courier New', monospace; font-size: 0.7rem;
+      color: var(--text2); padding: 2px 0; border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px;
+    }
+    .log-entry .log-time { color: var(--text3); flex-shrink: 0; }
   </style>
 </head>
 <body>
