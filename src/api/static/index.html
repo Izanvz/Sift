@@ -6,34 +6,37 @@
   <title>Sift</title>
   <!-- vendored locally — no external requests -->
   <script src="/vendor/marked.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0a0f1e;
-      --bg2:       #111827;
-      --bg3:       #1e293b;
-      --bg4:       #273549;
-      --border:    #1e293b;
-      --border2:   #334155;
-      --text:      #e2e8f0;
-      --text2:     #94a3b8;
-      --text3:     #64748b;
-      --accent:    #6366f1;
-      --accent2:   #4f46e5;
-      --green:     #22c55e;
-      --green-bg:  #14532d;
+      --bg:        #080810;
+      --bg2:       #0f0f1a;
+      --bg3:       #161625;
+      --bg4:       #1e1e30;
+      --border:    #1a1a28;
+      --border2:   #252538;
+      --text:      #f0f0f8;
+      --text1:     #f0f0f8;
+      --text2:     #8888aa;
+      --text3:     #555570;
+      --accent:    #7c6af7;
+      --accent2:   #6355e0;
+      --green:     #34d399;
+      --green-bg:  #064e3b;
       --yellow:    #fbbf24;
       --yellow-bg: #78350f;
       --blue:      #60a5fa;
       --blue-bg:   #1e3a5f;
       --red:       #f87171;
       --red-bg:    #4c1d1d;
-      --purple:    #a5b4fc;
+      --purple:    #c4b5fd;
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
@@ -104,14 +107,8 @@
 
     /* ── HEADER ── */
     header {
-      padding: 0 20px;
-      height: 52px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--bg2);
-      flex-shrink: 0;
+      padding: 0 20px; height: 48px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px; background: var(--bg2); flex-shrink: 0;
     }
     .header-logo { display: flex; align-items: center; gap: 10px; }
     .header-logo svg { width: 22px; height: 22px; color: var(--accent); }
@@ -141,66 +138,6 @@
     }
     .user-chip:hover { border-color: var(--accent); }
     .user-chip svg { width: 12px; height: 12px; color: var(--text3); }
-
-    /* ── LAYOUT ── */
-    .main { display: flex; flex: 1; overflow: hidden; }
-
-    /* ── LEFT PANEL ── */
-    .panel-left {
-      width: 260px;
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      background: var(--bg2);
-      flex-shrink: 0;
-    }
-    .panel-section {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .panel-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
-
-    textarea#query {
-      width: 100%;
-      height: 96px;
-      background: var(--bg3);
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: var(--text);
-      font-size: 0.82rem;
-      resize: none;
-      outline: none;
-      transition: border-color 0.2s;
-      line-height: 1.5;
-    }
-    textarea#query::placeholder { color: var(--text3); }
-    textarea#query:focus { border-color: var(--accent); }
-
-    .char-count { font-size: 0.65rem; color: var(--text3); text-align: right; margin-top: 4px; }
-
-    .btn-primary {
-      width: 100%;
-      margin-top: 10px;
-      padding: 10px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.15s, transform 0.1s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--accent2); }
-    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
-    .btn-primary:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
-    .btn-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-    .btn-primary.loading .btn-spinner { display: block; }
 
     .section-label {
       font-size: 0.65rem;
@@ -235,15 +172,6 @@
     .session-item:hover { background: var(--bg4); border-color: var(--border2); }
     .session-item .sid { font-family: monospace; color: var(--accent); font-size: 0.7rem; }
     .session-item .sdate { color: var(--text3); font-size: 0.68rem; margin-left: auto; }
-
-    /* ── CENTER PANEL ── */
-    .panel-center {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border-right: 1px solid var(--border);
-    }
 
     /* Graph DAG */
     .graph-section {
@@ -323,40 +251,6 @@
     .log-entry.waiting { color: var(--purple); }
     .log-empty { color: var(--text3); font-style: italic; }
 
-    /* ── RIGHT PANEL ── */
-    .panel-right {
-      width: 380px;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg2);
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    /* Tabs */
-    .right-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .tab-btn {
-      flex: 1;
-      padding: 10px 6px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--text3);
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      transition: color 0.15s, border-color 0.15s;
-    }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab-btn:hover:not(.active) { color: var(--text2); }
-    .tab-panel { display: none; flex: 1; overflow-y: auto; padding: 14px 16px; }
-    .tab-panel.active { display: flex; flex-direction: column; }
 
     /* Answer tab */
     #answer-container {
@@ -584,6 +478,154 @@
     .audit-event-row.header { color: var(--text3); font-size: 0.7rem; }
     .audit-status-ok  { color: var(--green); }
     .audit-status-error { color: var(--red); }
+
+    /* ── APP BODY ── */
+    .app-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── CHAT AREA ── */
+    .chat-area {
+      flex: 1; overflow-y: auto; padding: 32px 24px;
+      max-width: 820px; margin: 0 auto; width: 100%;
+      scroll-behavior: smooth;
+    }
+    .chat-area::-webkit-scrollbar { width: 4px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    /* ── WELCOME SCREEN ── */
+    .welcome {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; text-align: center; gap: 16px; color: var(--text2);
+      padding: 40px;
+    }
+    .welcome svg { width: 48px; height: 48px; color: var(--accent); opacity: 0.7; }
+    .welcome h2 { font-size: 1.6rem; font-weight: 800; color: var(--text); letter-spacing: -0.04em; line-height: 1.2; }
+    .welcome p { font-size: 0.9rem; color: var(--text3); max-width: 400px; line-height: 1.6; }
+
+    /* ── CHAT MESSAGES ── */
+    .chat-message { margin-bottom: 28px; }
+    .chat-message .msg-meta {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chat-message.user .msg-meta { justify-content: flex-end; }
+    .chat-message.user .msg-query {
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 12px 12px 4px 12px; padding: 14px 18px;
+      font-size: 0.9rem; color: var(--text); line-height: 1.6;
+      margin-left: auto; max-width: 80%; width: fit-content;
+    }
+    .chat-message.assistant .msg-status {
+      font-size: 0.78rem; color: var(--text3); display: flex; align-items: center; gap: 6px;
+      margin-bottom: 12px;
+    }
+    .chat-message.assistant .msg-status .pulse {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .chat-message.assistant .msg-answer {
+      font-size: 0.87rem; line-height: 1.75; color: var(--text);
+    }
+    .chat-message.assistant .msg-answer h1,
+    .chat-message.assistant .msg-answer h2,
+    .chat-message.assistant .msg-answer h3 {
+      font-weight: 700; letter-spacing: -0.02em; margin: 1.2em 0 0.5em; color: var(--text);
+    }
+    .chat-message.assistant .msg-answer h1 { font-size: 1.3rem; }
+    .chat-message.assistant .msg-answer h2 { font-size: 1.1rem; }
+    .chat-message.assistant .msg-answer h3 { font-size: 0.95rem; }
+    .chat-message.assistant .msg-answer p { margin-bottom: 0.9em; }
+    .chat-message.assistant .msg-answer code {
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px;
+      padding: 1px 6px; font-size: 0.82em; font-family: 'Fira Code', monospace;
+    }
+    .chat-message.assistant .msg-answer pre {
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; margin: 0.8em 0;
+    }
+    .chat-message.assistant .msg-answer pre code { background: none; border: none; padding: 0; }
+    .chat-message.assistant .msg-answer blockquote {
+      border-left: 3px solid var(--accent); padding-left: 14px;
+      color: var(--text2); margin: 0.8em 0;
+    }
+    .chat-message.assistant .msg-answer ul, .chat-message.assistant .msg-answer ol {
+      padding-left: 1.4em; margin-bottom: 0.8em;
+    }
+    .chat-message.assistant .msg-answer li { margin-bottom: 0.3em; }
+
+    /* ── DRAWER ── */
+    .drawer { border-top: 1px solid var(--border2); flex-shrink: 0; background: var(--bg2); }
+    .drawer-handle {
+      display: flex; align-items: center; background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto; overflow-y: hidden;
+    }
+    .drawer-handle::-webkit-scrollbar { height: 2px; }
+    .dtab {
+      padding: 9px 14px; font-size: 0.65rem; font-weight: 700;
+      color: var(--text3); background: none; border: none;
+      border-bottom: 2px solid transparent; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      white-space: nowrap; flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .dtab:hover { color: var(--text2); }
+    .dtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .drawer-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1);
+      background: var(--bg2);
+    }
+    .drawer.open .drawer-body { max-height: 240px; overflow-y: auto; }
+    .drawer-body::-webkit-scrollbar { width: 4px; }
+    .drawer-body::-webkit-scrollbar-track { background: transparent; }
+    .drawer-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    .dpanel { display: none; padding: 12px 16px; }
+    .dpanel.active { display: block; }
+
+    /* ── CHAT INPUT BAR ── */
+    .chat-input-wrap {
+      border-top: 1px solid var(--border); background: var(--bg2); flex-shrink: 0;
+    }
+    .chat-input-bar {
+      padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end;
+      max-width: 820px; margin: 0 auto; width: 100%;
+    }
+    #query {
+      flex: 1; min-height: 44px; max-height: 120px; resize: none;
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+      padding: 12px 14px; color: var(--text); font-size: 0.88rem; outline: none;
+      font-family: inherit; line-height: 1.5; overflow-y: auto;
+      transition: border-color 0.2s;
+    }
+    #query::placeholder { color: var(--text3); }
+    #query:focus { border-color: var(--accent); }
+    #send-btn {
+      width: 44px; height: 44px; flex-shrink: 0;
+      background: var(--accent); color: #fff; border: none; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--accent2); }
+    #send-btn:active:not(:disabled) { transform: scale(0.95); }
+    #send-btn:disabled { background: var(--bg4); cursor: not-allowed; }
+    #send-btn svg { width: 18px; height: 18px; }
+    .char-count { font-size: 0.62rem; color: var(--text3); text-align: right; padding: 0 16px 8px; }
+
+    /* ── PIPELINE / LOG panels in drawer ── */
+    .graph-section { padding: 8px 0; }
+    .log-section { padding: 4px 0; }
+    .log-entry {
+      font-family: 'Fira Code', 'Courier New', monospace; font-size: 0.7rem;
+      color: var(--text2); padding: 2px 0; border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px;
+    }
+    .log-entry .log-time { color: var(--text3); flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -638,120 +680,89 @@
   </div>
 </header>
 
-<div class="main">
+<div class="app-body">
+  <div class="chat-area-wrap">
+    <div class="chat-area" id="chat-area">
+      <div id="welcome" class="welcome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 7v5M8.5 11h5"/>
+        </svg>
+        <h2>Bienvenido a Sift</h2>
+        <p>Escribe tu consulta abajo para investigar tus documentos indexados.</p>
+      </div>
+    </div>
+  </div>
 
-  <!-- LEFT PANEL -->
-  <div class="panel-left">
-    <div class="panel-section">
-      <div class="section-label">Nueva consulta</div>
-      <textarea id="query" placeholder="Pregunta sobre los documentos indexados... Sé específico." maxlength="500"></textarea>
-      <div class="char-count"><span id="char-count">0</span>/500</div>
-      <button class="btn-primary" id="btn-start" onclick="startResearch()">
-        <div class="btn-spinner"></div>
-        <span class="btn-text">Buscar &amp; sintetizar</span>
+  <div class="drawer" id="drawer">
+    <div class="drawer-handle">
+      <button class="dtab active" onclick="toggleDrawer('pipeline')" id="dtab-pipeline">Pipeline</button>
+      <button class="dtab" onclick="toggleDrawer('log')" id="dtab-log">Log</button>
+      <button class="dtab" onclick="toggleDrawer('citations')" id="dtab-citations">Citas</button>
+      <button class="dtab" onclick="toggleDrawer('critique')" id="dtab-critique">Crítica</button>
+      <button class="dtab" onclick="toggleDrawer('retrieval')" id="dtab-retrieval">Retrieval</button>
+      <button class="dtab" onclick="toggleDrawer('audit')" id="dtab-audit">Audit</button>
+      <button class="dtab" onclick="toggleDrawer('sessions')" id="dtab-sessions">Sesiones</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <!-- Pipeline panel -->
+      <div class="dpanel active" id="dpanel-pipeline">
+        <div class="graph-section">
+          <div class="section-label">Pipeline</div>
+          <div class="nodes-grid" id="nodes-grid"></div>
+        </div>
+      </div>
+      <!-- Log panel -->
+      <div class="dpanel" id="dpanel-log">
+        <div class="log-section">
+          <div id="log-entries"></div>
+        </div>
+      </div>
+      <!-- Citations panel -->
+      <div class="dpanel" id="dpanel-citations">
+        <div id="citations-container"><div class="panel-empty">Sin citas.</div></div>
+      </div>
+      <!-- Critique panel -->
+      <div class="dpanel" id="dpanel-critique">
+        <div id="critique-container"><div class="panel-empty">Sin crítica.</div></div>
+      </div>
+      <!-- Retrieval panel -->
+      <div class="dpanel" id="dpanel-retrieval">
+        <div id="retrieval-container"><div class="panel-empty">Sin datos de retrieval.</div></div>
+      </div>
+      <!-- Audit panel -->
+      <div class="dpanel" id="dpanel-audit">
+        <div id="audit-filters">
+          <input type="text" id="audit-filter-user" placeholder="user_id">
+          <select id="audit-filter-status">
+            <option value="">todos</option>
+            <option value="ok">ok</option>
+            <option value="error">error</option>
+          </select>
+          <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
+          <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
+          <button onclick="loadAudit()">Filtrar</button>
+        </div>
+        <div class="audit-stats-bar" id="audit-stats-bar"></div>
+        <div id="audit-container"></div>
+      </div>
+      <!-- Sessions panel -->
+      <div class="dpanel" id="dpanel-sessions">
+        <div class="section-label" style="padding: 8px 0 6px">Sesiones recientes</div>
+        <div id="sessions-list"><div class="panel-empty">Sin sesiones.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-input-wrap">
+    <div class="chat-input-bar">
+      <textarea id="query" placeholder="¿Qué quieres investigar? (Enter para enviar, Shift+Enter para nueva línea)" rows="1"></textarea>
+      <button id="send-btn" onclick="startResearch()" title="Enviar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+        </svg>
       </button>
     </div>
-    <div class="panel-section" style="flex:1; overflow-y:auto;">
-      <div class="section-label">Sesiones</div>
-      <div id="sessions-list">
-        <div class="sessions-empty">Sin sesiones aún.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CENTER PANEL -->
-  <div class="panel-center">
-
-    <!-- Graph DAG (Sift v2 nodes) -->
-    <div class="graph-section">
-      <div class="section-label">Pipeline</div>
-      <div class="graph-dag" id="graph-dag">
-        <div class="node-pill" id="node-route_query"><div class="dot"></div>route query</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-retrieve"><div class="dot"></div>retrieve</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-gather"><div class="dot"></div>gather</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-evaluate_relevance"><div class="dot"></div>evaluate</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-rewrite_query" style="opacity:.75"><div class="dot"></div>rewrite query</div>
-        <span class="dag-loop" title="loop si baja relevancia">⟳</span>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-synthesize"><div class="dot"></div>synthesize</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-self_critique"><div class="dot"></div>critique</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-rewrite_answer" style="opacity:.75"><div class="dot"></div>rewrite ans</div>
-        <span class="dag-loop" title="loop si faithfulness baja">⟳</span>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-format_response"><div class="dot"></div>format</div>
-      </div>
-    </div>
-
-    <!-- Event log -->
-    <div class="log-section">
-      <div class="section-label">Log de eventos</div>
-      <div class="event-log" id="event-log">
-        <div class="log-entry log-empty">Esperando consulta...</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- RIGHT PANEL -->
-  <div class="panel-right">
-    <div class="right-tabs">
-      <button class="tab-btn active" onclick="switchTab('answer')">Respuesta</button>
-      <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
-      <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
-      <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval</button>
-      <button class="tab-btn" onclick="switchTab('audit')">Audit</button>
-    </div>
-
-    <!-- Answer tab -->
-    <div class="tab-panel active" id="tab-answer">
-      <div id="answer-container">
-        <div class="panel-empty">La respuesta aparecerá aquí al finalizar.</div>
-      </div>
-    </div>
-
-    <!-- Citations tab -->
-    <div class="tab-panel" id="tab-citations">
-      <div id="citations-container">
-        <div class="panel-empty">Las fuentes citadas aparecerán aquí.</div>
-      </div>
-    </div>
-
-    <!-- Critique tab -->
-    <div class="tab-panel" id="tab-critique">
-      <div id="critique-container">
-        <div class="panel-empty">El análisis de calidad aparecerá aquí.</div>
-      </div>
-    </div>
-
-    <!-- Retrieval Debug tab -->
-    <div class="tab-panel" id="tab-retrieval">
-      <div id="retrieval-container">
-        <div class="panel-empty">El debug de retrieval aparecerá aquí.</div>
-      </div>
-    </div>
-
-    <!-- Audit tab -->
-    <div class="tab-panel" id="tab-audit">
-      <div id="audit-filters">
-        <input type="text" id="audit-filter-user" placeholder="user_id">
-        <select id="audit-filter-status">
-          <option value="">todos</option>
-          <option value="ok">ok</option>
-          <option value="error">error</option>
-        </select>
-        <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
-        <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
-        <button onclick="loadAudit()">Filtrar</button>
-      </div>
-      <div class="audit-stats-bar" id="audit-stats-bar"></div>
-      <div id="audit-container"></div>
-    </div>
+    <div class="char-count"><span id="char-count">0</span>/2000</div>
   </div>
 </div>
 
@@ -794,6 +805,7 @@ let token = sessionStorage.getItem('sift_token') || null;
 window._authToken = token;
 let currentUser = null;
 let currentSessionId = null;
+let activeDrawerTab = 'pipeline';
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 async function doLogin() {
@@ -894,19 +906,45 @@ async function init() {
   loadSessions();
 }
 
-// ── Tabs ─────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const names = ['answer', 'citations', 'critique', 'retrieval', 'audit'];
-    b.classList.toggle('active', names[i] === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`tab-${name}`).classList.add('active');
+// ── Drawer toggle ─────────────────────────────────────────────────────────
+function toggleDrawer(tabName) {
+  const drawer = document.getElementById('drawer');
+  const isSameTab = activeDrawerTab === tabName;
+  const isOpen = drawer.classList.contains('open');
+
+  if (isOpen && isSameTab) {
+    drawer.classList.remove('open');
+  } else {
+    drawer.classList.add('open');
+    activeDrawerTab = tabName;
+    // hide all dpanels
+    document.querySelectorAll('.dpanel').forEach(p => p.classList.remove('active'));
+    // show target panel
+    const target = document.getElementById('dpanel-' + tabName);
+    if (target) target.classList.add('active');
+    // update tab active state
+    document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+    const activeBtn = document.getElementById('dtab-' + tabName);
+    if (activeBtn) activeBtn.classList.add('active');
+    // auto-load on tab switch
+    if (tabName === 'sessions') loadSessions();
+    if (tabName === 'audit' && window._authToken) loadAudit();
+  }
 }
 
-// ── Char counter ─────────────────────────────────────────────────────────
+// ── Char counter + auto-resize ────────────────────────────────────────────
 document.getElementById('query').addEventListener('input', function() {
-  document.getElementById('char-count').textContent = this.value.length;
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  const count = document.getElementById('char-count');
+  if (count) count.textContent = this.value.length;
+});
+
+document.getElementById('query').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    startResearch();
+  }
 });
 
 // ── Node state ────────────────────────────────────────────────────────────
@@ -925,14 +963,59 @@ function resetNodes() {
 
 // ── Logging ───────────────────────────────────────────────────────────────
 function log(msg, type = 'info') {
-  const el = document.getElementById('event-log');
-  el.querySelector('.log-empty')?.remove();
+  const el = document.getElementById('log-entries');
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
-  const ts = new Date().toLocaleTimeString('es-ES', { hour12: false });
-  entry.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  const tsEl = document.createElement('span');
+  tsEl.className = 'log-time';
+  tsEl.textContent = new Date().toLocaleTimeString('es-ES', { hour12: false });
+  const msgEl = document.createElement('span');
+  msgEl.textContent = msg;
+  entry.append(tsEl, msgEl);
   el.appendChild(entry);
   el.scrollTop = el.scrollHeight;
+}
+
+// ── Chat message helpers ───────────────────────────────────────────────────
+function addUserMessage(query) {
+  document.getElementById('welcome').style.display = 'none';
+  const area = document.getElementById('chat-area');
+  const msg = document.createElement('div');
+  msg.className = 'chat-message user';
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = 'Tú';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-query';
+  bubble.textContent = query;
+  msg.appendChild(meta);
+  msg.appendChild(bubble);
+  area.appendChild(msg);
+  area.scrollTop = area.scrollHeight;
+  return msg;
+}
+
+function addAssistantMessage() {
+  const area = document.getElementById('chat-area');
+  const msg = document.createElement('div');
+  msg.className = 'chat-message assistant';
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = 'Sift';
+  const statusEl = document.createElement('div');
+  statusEl.className = 'msg-status';
+  const pulse = document.createElement('span');
+  pulse.className = 'pulse';
+  statusEl.appendChild(pulse);
+  statusEl.appendChild(document.createTextNode(' Generando…'));
+  const answerEl = document.createElement('div');
+  answerEl.className = 'msg-answer';
+  msg.appendChild(meta);
+  msg.appendChild(statusEl);
+  msg.appendChild(answerEl);
+  area.appendChild(msg);
+  area.scrollTop = area.scrollHeight;
+  return msg;
 }
 
 // ── Research ──────────────────────────────────────────────────────────────
@@ -940,18 +1023,31 @@ async function startResearch() {
   const query = document.getElementById('query').value.trim();
   if (!query) { document.getElementById('query').focus(); return; }
 
-  const btn = document.getElementById('btn-start');
-  btn.disabled = true;
-  btn.classList.add('loading');
+  // Clear textarea and reset height
+  const queryEl = document.getElementById('query');
+  queryEl.value = '';
+  queryEl.style.height = 'auto';
+  document.getElementById('char-count').textContent = '0';
 
-  document.getElementById('event-log').innerHTML = '';
-  document.getElementById('answer-container').innerHTML = '<div class="panel-empty">Generando...</div>';
+  // Add chat messages
+  addUserMessage(query);
+  window._currentAssistantMsg = addAssistantMessage();
+
+  // Open log drawer
+  toggleDrawer('log');
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+
+  // Reset pipeline and log
+  if (typeof resetNodes === 'function') resetNodes();
+  document.getElementById('log-entries').textContent = '';
   document.getElementById('citations-container').innerHTML = '<div class="panel-empty">Recuperando fuentes...</div>';
   document.getElementById('critique-container').innerHTML = '<div class="panel-empty">Evaluando...</div>';
   document.getElementById('retrieval-container').innerHTML = '<div class="panel-empty">Cargando debug de retrieval...</div>';
-  resetNodes();
 
-  log(`Consulta: "<em>${query.slice(0, 70)}${query.length > 70 ? '…' : ''}</em>"`);
+  const shortQ = query.slice(0, 70) + (query.length > 70 ? '…' : '');
+  log('Consulta: "' + shortQ + '"');
 
   try {
     const resp = await apiFetch('/research', {
@@ -980,10 +1076,9 @@ async function startResearch() {
       }
     }
   } catch (err) {
-    log(`✗ ${err.message}`, 'error');
+    log('✗ ' + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.classList.remove('loading');
     loadSessions();
   }
 }
@@ -993,17 +1088,17 @@ function handleSSE(data) {
   if (session_id) currentSessionId = session_id;
 
   if (status === 'started') {
-    log(`Sesión <span style="color:var(--accent);font-family:monospace">${session_id?.slice(0,8)}</span> iniciada`, 'done');
+    log('Sesión ' + (session_id?.slice(0,8) || '?') + ' iniciada', 'done');
     return;
   }
   if (status === 'running' && node) {
     setNodeState(node, 'running');
-    log(`▶ ${node.replace(/_/g,' ')}`, 'running');
+    log('▶ ' + node.replace(/_/g,' '), 'running');
     return;
   }
   if (status === 'done' && node) {
     setNodeState(node, 'done');
-    log(`✓ ${node.replace(/_/g,' ')}`, 'done');
+    log('✓ ' + node.replace(/_/g,' '), 'done');
     // Fetch state para obtener citations + critique cuando terminan esos nodos
     if (node === 'format_response') fetchFinalState(currentSessionId);
     return;
@@ -1018,10 +1113,11 @@ function handleSSE(data) {
     log('✓ Completado', 'done');
     if (data.report) renderAnswer(data.report);
     fetchFinalState(currentSessionId);
+    setTimeout(() => toggleDrawer('pipeline'), 800);
     return;
   }
   if (status === 'error') {
-    log(`✗ ${data.message || 'Error desconocido'}`, 'error');
+    log('✗ ' + (data.message || 'Error desconocido'), 'error');
   }
 }
 
@@ -1074,8 +1170,8 @@ function _linkifyCitationMarkers(container) {
         a.textContent = match;
         a.addEventListener('click', e => {
           e.preventDefault();
-          switchTab('citations');
-          const target = document.getElementById(`cite-${num}`);
+          toggleDrawer('citations');
+          const target = document.getElementById('cite-' + num);
           if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
         frag.appendChild(a);
@@ -1092,8 +1188,16 @@ function _linkifyCitationMarkers(container) {
 }
 
 function renderAnswer(text) {
-  document.getElementById('answer-container').innerHTML = marked.parse(text);
-  _linkifyCitationMarkers(document.getElementById('answer-container'));
+  if (window._currentAssistantMsg) {
+    const statusEl = window._currentAssistantMsg.querySelector('.msg-status');
+    if (statusEl) statusEl.style.display = 'none';
+    const answerEl = window._currentAssistantMsg.querySelector('.msg-answer');
+    if (answerEl) {
+      answerEl.innerHTML = marked.parse(text);
+      _linkifyCitationMarkers(answerEl);
+    }
+    document.getElementById('chat-area').scrollTop = document.getElementById('chat-area').scrollHeight;
+  }
 }
 
 function _citeTypeBadge(sourceType) {
@@ -1168,7 +1272,8 @@ function renderCitations(citations) {
 
     container.appendChild(card);
   });
-  document.querySelectorAll('.tab-btn')[1].textContent = `Citas (${citations.length})`;
+  const citTab = document.getElementById('dtab-citations');
+  if (citTab) citTab.textContent = 'Citas (' + citations.length + ')';
 }
 
 function renderCritique(critique) {
@@ -1284,7 +1389,7 @@ async function renderRetrieval(sessionId) {
 async function sendHumanFeedback(action) {
   const content = document.getElementById('human-comment').value || `Action: ${action}`;
   document.getElementById('modal-overlay').classList.remove('active');
-  log(`Feedback enviado: <strong>${action}</strong>`, 'running');
+  log('Feedback enviado: ' + action, 'running');
   try {
     const r = await apiFetch(`/research/${currentSessionId}/resume`, {
       method: 'POST',
@@ -1298,7 +1403,7 @@ async function sendHumanFeedback(action) {
       loadSessions();
     }
   } catch (err) {
-    log(`✗ ${err.message}`, 'error');
+    log('✗ ' + err.message, 'error');
   }
 }
 
