@@ -11,7 +11,9 @@ async def lifespan(app: FastAPI):
     from src.audit.store import get_audit_store
     from src.auth.store import get_user_store
     from src.db.checkpointer import get_checkpointer
+    from src.observability.langfuse_tracing import init_langfuse
 
+    init_langfuse()
     checkpointer = get_checkpointer()
     app.state.graph = build_graph(checkpointer=checkpointer)
     app.state.checkpointer = checkpointer

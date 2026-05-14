@@ -110,6 +110,22 @@ Built with **LangGraph** — cycles, conditional edges, interrupts, and SQLite-b
 
 ---
 
+## vs. Tutorial RAG
+
+| Capability | Tutorial RAG | Sift |
+|---|:---:|:---:|
+| Vector search | ✓ | ✓ |
+| BM25 + vector hybrid retrieval | — | ✓ |
+| Cross-encoder reranker | — | ✓ |
+| Inline citations (file / page / line) | basic | ✓ |
+| Per-user corpus permissions | — | ✓ |
+| Append-only audit log | — | ✓ |
+| RAGAS evaluation harness | — | ✓ |
+| Human-in-the-loop (LangGraph interrupt) | — | ✓ |
+| Self-hosted, zero outbound API calls | sometimes | ✓ |
+
+---
+
 ## Stack
 
 ```
@@ -123,7 +139,7 @@ Reranker      BAAI/bge-reranker-base (sentence-transformers, lazy-loaded)
 API           FastAPI 0.115 + SSE streaming
 Auth          python-jose JWT + bcrypt (passlib bypassed — broken on Py3.14 + bcrypt 5)
 Eval          RAGAS 0.2 with Ollama judge wrapper
-UI            Single-file HTML + vanilla JS + marked.js (no build step)
+UI            Single-file HTML + vanilla JS + marked.js (vendored, no CDN)
 Storage       SQLite for users, sessions, audit; ChromaDB for vectors
 Deploy        Docker Compose — intentionally no cloud
 ```
@@ -132,30 +148,49 @@ Deploy        Docker Compose — intentionally no cloud
 
 ## Quickstart
 
+**Requirements:** Docker, Python 3.12+, ~5 GB disk (Ollama model).
+
 ```bash
 git clone https://github.com/Izanvz/Sift.git
 cd Sift
 
-# 1. Boot infra (Ollama pulls qwen2.5:7b ~4.7GB on first run)
+# 1. Start infra — Ollama pulls qwen2.5:7b (~4.7 GB) on first run
 docker compose up -d
 
 # 2. Install Python deps
 pip install -r requirements.txt
 
-# 3. Create an admin user
-python scripts/bootstrap_admin.py -u admin -p <password> --scopes "*"
+# 3. Create demo users and index the demo corpus
+python scripts/bootstrap_demo.py
 
-# 4. Index documents (any of these — pick what you have)
-python scripts/ingest.py --source data/sources/enterprise/vercel-docs --connector markdown
-python scripts/ingest.py --source data/sources/code/stripe-go        --connector code
-python scripts/ingest.py --source data/sources/personal              --connector pdf
-
-# 5. Run the API
+# 4. Start the API
 uvicorn src.api.main:app --port 8001
 
-# 6. Open the UI
+# 5. Open the UI
+#    macOS/Linux:
 open http://localhost:8001
+#    Windows:
+start http://localhost:8001
 ```
+
+Login with any demo user (printed by bootstrap_demo.py):
+
+| User | Password | Sees |
+|------|----------|------|
+| admin | admin123 | everything |
+| engineer | engineer123 | docs + code |
+| sales | sales123 | docs only |
+| no_scope | noscope123 | nothing (permission demo) |
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `Connection refused` on port 11434 | `docker compose ps` — Ollama container not healthy yet. Wait 30 s and retry. |
+| `Connection refused` on port 8000 | ChromaDB not up. Same: wait and retry, or `docker compose logs chromadb`. |
+| Reranker slow on first query | `BAAI/bge-reranker-base` downloads on first use (~500 MB). Subsequent queries are fast. |
+| `JWT_SECRET is dev-secret` warning | Set `JWT_SECRET=<random-string>` in `.env` before starting. The default is fine for demos. |
+| No results returned | Demo corpus is small. Try queries listed by `bootstrap_demo.py`. For production, ingest your own docs with `scripts/ingest.py`. |
 
 ---
 

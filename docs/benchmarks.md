@@ -2,8 +2,6 @@
 
 How to reproduce, what was measured, and the latest numbers.
 
-> **Status:** placeholders below until the full eval runs against the real corpus. Once the corpus is fully ingested and Ollama is warm, results will be filled in by re-running `scripts/eval.py` and committing the timestamped report.
-
 ---
 
 ## 1. Reproducing
@@ -27,7 +25,7 @@ Output lands in `data/eval/reports/report-<timestamp>.{md,json}`.
 
 ## 2. Golden dataset
 
-15 hand-crafted Q&A pairs in `data/eval/golden_qa.jsonl`:
+15 hand-crafted Q&A pairs (8 evaluated in the latest run — vercel tag) in `data/eval/golden_qa.jsonl`:
 
 | Tag | N | Query types |
 |-----|---|-------------|
@@ -65,17 +63,24 @@ Judge model: `qwen2.5:7b` via Ollama (LangchainLLMWrapper). RAGAS does not need 
 
 ## 4. Latest run
 
-> Will be replaced after the next end-to-end run. Snapshot only.
+_2026-05-12 · 8 Q&A pairs (vercel tag) · CPU-only Ollama (qwen2.5:7b)_
 
-| Metric | Score |
-|--------|-------|
-| faithfulness | _pending_ |
-| answer_relevancy | _pending_ |
-| context_precision | _pending_ |
-| context_recall | _pending_ |
-| source_recall | _pending_ |
-| mean latency | _pending_ |
-| p95 latency | _pending_ |
+| Metric | Score | Notes |
+|--------|-------|-------|
+| faithfulness | — | RAGAS Ollama judge needs `EMBEDDING_MODEL` env var |
+| answer_relevancy | — | same |
+| context_precision | — | same |
+| context_recall | — | same |
+| **source_recall** | **100%** | citations matched expected sources on all 8 questions |
+| mean latency | 618.94 s | CPU-only; expect 5–15 s on GPU |
+| median latency | 635.82 s | |
+| p95 latency | ≈ 885.30 s (max) | |
+
+To get RAGAS scores: set `EMBEDDING_MODEL=nomic-embed-text` (or any Ollama embedding model) in your `.env`, then re-score without re-running the agent:
+
+```bash
+python scripts/eval_score.py --report data/eval/reports/report-20260512-145350.json
+```
 
 ---
 

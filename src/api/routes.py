@@ -46,13 +46,16 @@ async def start_research(
 ):
     graph = request.app.state.graph
     session_id = str(uuid4())
+    from src.observability.langfuse_tracing import get_callbacks
+
     config = {
         "configurable": {
             "thread_id": session_id,
             "user_id": user.sub,
             "scopes": user.scopes,
             "is_admin": user.is_admin,
-        }
+        },
+        "callbacks": get_callbacks(),
     }
     initial_state = {
         "query": body.query,

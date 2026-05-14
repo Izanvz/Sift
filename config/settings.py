@@ -47,5 +47,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 8   # 8 horas
 
+    # --- Observability (Langfuse) ---
+    langfuse_enabled: bool = False
+    langfuse_host: str = "http://localhost:3000"
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+
 
 settings = Settings()
