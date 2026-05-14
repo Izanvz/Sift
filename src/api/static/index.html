@@ -439,6 +439,26 @@
     .quality-bar-fill.low { background: var(--red); }
     .quality-bar-fill.mid { background: var(--yellow); }
 
+    /* RETRIEVAL DEBUG TAB */
+    .debug-stage { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .debug-stage-title {
+      font-size: 0.7rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px;
+    }
+    .debug-item {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 10px; font-size: 0.75rem;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .debug-item-id { color: var(--text3); font-size: 0.68rem; }
+    .debug-item-score { color: var(--green); font-weight: 600; }
+    .debug-item-preview { color: var(--text2); }
+    .debug-rewrite-badge {
+      background: var(--yellow-bg); border: 1px solid var(--yellow);
+      border-radius: 6px; padding: 8px 10px; font-size: 0.75rem;
+      color: var(--yellow); margin-bottom: 12px;
+    }
+
     /* ── MODAL ── */
     .modal-overlay {
       display: none;
@@ -637,6 +657,7 @@
       <button class="tab-btn active" onclick="switchTab('answer')">Respuesta</button>
       <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
       <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
+      <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval</button>
     </div>
 
     <!-- Answer tab -->
@@ -657,6 +678,13 @@
     <div class="tab-panel" id="tab-critique">
       <div id="critique-container">
         <div class="panel-empty">El análisis de calidad aparecerá aquí.</div>
+      </div>
+    </div>
+
+    <!-- Retrieval Debug tab -->
+    <div class="tab-panel" id="tab-retrieval">
+      <div id="retrieval-container">
+        <div class="panel-empty">El debug de retrieval aparecerá aquí.</div>
       </div>
     </div>
   </div>
@@ -800,7 +828,7 @@ async function init() {
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const names = ['answer', 'citations', 'critique'];
+    const names = ['answer', 'citations', 'critique', 'retrieval'];
     b.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -851,6 +879,7 @@ async function startResearch() {
   document.getElementById('answer-container').innerHTML = '<div class="panel-empty">Generando...</div>';
   document.getElementById('citations-container').innerHTML = '<div class="panel-empty">Recuperando fuentes...</div>';
   document.getElementById('critique-container').innerHTML = '<div class="panel-empty">Evaluando...</div>';
+  document.getElementById('retrieval-container').innerHTML = '<div class="panel-empty">Cargando debug de retrieval...</div>';
   resetNodes();
 
   log(`Consulta: "<em>${query.slice(0, 70)}${query.length > 70 ? '…' : ''}</em>"`);
@@ -937,6 +966,7 @@ async function fetchFinalState(sessionId) {
     if (state?.answer) renderAnswer(state.answer);
     if (state?.citations?.length) renderCitations(state.citations);
     if (state?.critique) renderCritique(state.critique);
+    renderRetrieval(sessionId);
   } catch {}
 }
 
@@ -1014,6 +1044,79 @@ function renderCritique(critique) {
       <div class="gap-item" style="border-color:var(--accent)">${esc(critique.recommendation)}</div>`;
   }
   container.innerHTML = html;
+}
+
+async function renderRetrieval(sessionId) {
+  const container = document.getElementById('retrieval-container');
+  if (!sessionId) return;
+  try {
+    const r = await apiFetch(`/research/${sessionId}/explain`);
+    if (!r.ok) {
+      container.innerHTML = '<div class="panel-empty">No disponible para esta sesión.</div>';
+      return;
+    }
+    const d = await r.json();
+    container.innerHTML = '';
+
+    // Rewrite badge (only if query was rewritten)
+    if (d.query_original && d.query_original !== d.query_current) {
+      const badge = document.createElement('div');
+      badge.className = 'debug-rewrite-badge';
+      const orig = document.createElement('div');
+      orig.textContent = 'Original: ' + d.query_original;
+      const rewritten = document.createElement('div');
+      rewritten.textContent = 'Reescrita: ' + (d.query_current || d.query || '');
+      badge.append(orig, rewritten);
+      container.appendChild(badge);
+    }
+
+    const stages = [
+      { title: 'BM25 Top', items: d.bm25_top,  scoreKey: 'bm25_score',      scoreLabel: 'BM25' },
+      { title: 'Vector Top', items: d.vector_top, scoreKey: 'relevance_score', scoreLabel: 'Score' },
+      { title: 'RRF Fusion', items: d.rrf_top,   scoreKey: 'rrf_score',       scoreLabel: 'RRF' },
+      { title: 'Final (post-reranker)', items: d.final_top, scoreKey: 'relevance_score', scoreLabel: 'Score' },
+    ];
+
+    stages.forEach(({ title, items, scoreKey, scoreLabel }) => {
+      if (!items || items.length === 0) return;
+      const stage = document.createElement('div');
+      stage.className = 'debug-stage';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'debug-stage-title';
+      titleEl.textContent = title;
+      stage.appendChild(titleEl);
+
+      items.forEach(it => {
+        const item = document.createElement('div');
+        item.className = 'debug-item';
+
+        const idEl = document.createElement('div');
+        idEl.className = 'debug-item-id';
+        idEl.textContent = (it.id || '') + ' · ' + (it.source_type || '') + ' · ' + (it.source_path || '');
+
+        const previewEl = document.createElement('div');
+        previewEl.className = 'debug-item-preview';
+        previewEl.textContent = (it.content_preview || '').slice(0, 120);
+
+        const scoreEl = document.createElement('div');
+        scoreEl.className = 'debug-item-score';
+        const scoreVal = it[scoreKey];
+        scoreEl.textContent = scoreLabel + ': ' + (typeof scoreVal === 'number' ? scoreVal.toFixed(4) : '—');
+
+        item.append(idEl, previewEl, scoreEl);
+        stage.appendChild(item);
+      });
+
+      container.appendChild(stage);
+    });
+  } catch (e) {
+    const errEl = document.createElement('div');
+    errEl.className = 'panel-empty';
+    errEl.textContent = 'Error al cargar retrieval debug: ' + e.message;
+    container.innerHTML = '';
+    container.appendChild(errEl);
+  }
 }
 
 // ── Human feedback ────────────────────────────────────────────────────────
