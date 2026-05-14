@@ -1,0 +1,79 @@
+{
+  "timestamp": "20260512-145350",
+  "n_total": 8,
+  "n_evaluated": 8,
+  "source_recall": 1.0,
+  "aggregate": {
+    "faithfulness": null,
+    "answer_relevancy": null,
+    "context_precision": null,
+    "context_recall": null
+  },
+  "per_question": [
+    {
+      "id": "q001",
+      "query": "What is a Vercel Edge Function?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q002",
+      "query": "How does Vercel handle environment variables for different deployments?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q003",
+      "query": "What is the difference between ISR and SSG in Next.js on Vercel?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q004",
+      "query": "How are deployments rolled back on Vercel?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q005",
+      "query": "What is the role of vercel.json in a project?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q011",
+      "query": "Compare how Vercel Edge Functions and Serverless Functions differ in runtime environment.",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q014",
+      "query": "Compare cron jobs scheduling between Vercel and a typical Linux crontab.",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    },
+    {
+      "id": "q015",
+      "query": "How does Vercel's preview deployment workflow integrate with Git?",
+      "faithfulness": null,
+      "answer_relevancy": null,
+      "context_precision": null,
+      "context_recall": null
+    }
+  ],
+  "errors": []
+}
