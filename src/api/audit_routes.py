@@ -12,13 +12,24 @@ router = APIRouter()
 async def list_events(
     user_id: str | None = Query(None, description="Filtrar por user_id"),
     event_type: str | None = Query(None),
+    status: str | None = Query(None, description="ok | error"),
+    date_from: str | None = Query(None, description="ISO8601, ej. 2026-05-01T00:00:00+00:00"),
+    date_to: str | None = Query(None, description="ISO8601"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     _admin: TokenData = Depends(require_admin),
 ):
     """Lista eventos de audit (solo admins)."""
     store = get_audit_store()
-    return store.query_events(user_id=user_id, event_type=event_type, limit=limit, offset=offset)
+    return store.query_events(
+        user_id=user_id,
+        event_type=event_type,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/events/mine")
@@ -36,5 +47,4 @@ async def my_events(
 async def audit_stats(_admin: TokenData = Depends(require_admin)):
     """Estadísticas globales (solo admins)."""
     store = get_audit_store()
-    total = store.count()
-    return {"total_events": total}
+    return store.stats()

@@ -537,6 +537,53 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    /* CITATION BADGES */
+    .cite-type-badge {
+      display: inline-block;
+      font-size: 0.6rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-left: 6px; vertical-align: middle;
+    }
+    .cite-badge-pdf      { background: var(--red-bg);    color: var(--red); }
+    .cite-badge-markdown { background: var(--blue-bg);   color: var(--blue); }
+    .cite-badge-code     { background: var(--green-bg);  color: var(--green); }
+    .cite-badge-email    { background: var(--yellow-bg); color: var(--yellow); }
+    .cite-badge-unknown  { background: var(--bg3);       color: var(--text3); }
+    .cite-score { font-size: 0.65rem; color: var(--text3); margin-top: 3px; }
+    .cite-score span { color: var(--green); font-weight: 600; }
+    .cite-link {
+      color: var(--accent); text-decoration: none;
+      font-weight: 600; padding: 0 1px; border-radius: 3px;
+    }
+    .cite-link:hover { background: var(--bg3); text-decoration: underline; }
+
+    /* AUDIT DASHBOARD */
+    #audit-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    #audit-filters input, #audit-filters select {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text1); padding: 4px 8px; font-size: 0.8rem;
+    }
+    #audit-filters button {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
+    }
+    .audit-stats-bar {
+      display: flex; gap: 16px; margin-bottom: 10px;
+      font-size: 0.78rem; color: var(--text2);
+    }
+    .audit-stats-bar span { color: var(--text1); font-weight: 600; }
+    .audit-event-row {
+      display: grid;
+      grid-template-columns: 90px 80px 1fr 80px 70px;
+      gap: 6px;
+      padding: 5px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--text2); align-items: center;
+    }
+    .audit-event-row.header { color: var(--text3); font-size: 0.7rem; }
+    .audit-status-ok  { color: var(--green); }
+    .audit-status-error { color: var(--red); }
   </style>
 </head>
 <body>
@@ -658,6 +705,7 @@
       <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
       <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
       <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval</button>
+      <button class="tab-btn" onclick="switchTab('audit')">Audit</button>
     </div>
 
     <!-- Answer tab -->
@@ -686,6 +734,23 @@
       <div id="retrieval-container">
         <div class="panel-empty">El debug de retrieval aparecerá aquí.</div>
       </div>
+    </div>
+
+    <!-- Audit tab -->
+    <div class="tab-panel" id="tab-audit">
+      <div id="audit-filters">
+        <input type="text" id="audit-filter-user" placeholder="user_id">
+        <select id="audit-filter-status">
+          <option value="">todos</option>
+          <option value="ok">ok</option>
+          <option value="error">error</option>
+        </select>
+        <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
+        <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
+        <button onclick="loadAudit()">Filtrar</button>
+      </div>
+      <div class="audit-stats-bar" id="audit-stats-bar"></div>
+      <div id="audit-container"></div>
     </div>
   </div>
 </div>
@@ -726,6 +791,7 @@
 <script>
 // ── State ────────────────────────────────────────────────────────────────
 let token = sessionStorage.getItem('sift_token') || null;
+window._authToken = token;
 let currentUser = null;
 let currentSessionId = null;
 
@@ -754,6 +820,7 @@ async function doLogin() {
     }
     const data = await r.json();
     token = data.access_token;
+    window._authToken = token;
     sessionStorage.setItem('sift_token', token);
     document.getElementById('login-overlay').classList.remove('active');
     await init();
@@ -768,6 +835,7 @@ async function doLogin() {
 
 function doLogout() {
   token = null;
+  window._authToken = null;
   currentUser = null;
   sessionStorage.removeItem('sift_token');
   document.getElementById('login-overlay').classList.add('active');
@@ -794,9 +862,10 @@ async function init() {
   if (token) {
     try {
       const r = await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) { token = null; sessionStorage.removeItem('sift_token'); }
+      if (!r.ok) { token = null; window._authToken = null; sessionStorage.removeItem('sift_token'); }
       else {
         currentUser = await r.json();
+        window._authToken = token;
         document.getElementById('user-chip').style.display = 'flex';
         document.getElementById('user-chip-name').textContent = currentUser.username;
         document.getElementById('login-overlay').classList.remove('active');
@@ -828,7 +897,7 @@ async function init() {
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const names = ['answer', 'citations', 'critique', 'retrieval'];
+    const names = ['answer', 'citations', 'critique', 'retrieval', 'audit'];
     b.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -983,30 +1052,122 @@ async function fetchStateForModal(sessionId) {
   } catch {}
 }
 
+function _linkifyCitationMarkers(container) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+
+  textNodes.forEach(textNode => {
+    if (!/\[\d{1,2}\]/.test(textNode.nodeValue)) return;
+    const frag = document.createDocumentFragment();
+    let lastIdx = 0;
+    textNode.nodeValue.replace(/\[(\d{1,2})\]/g, (match, n, offset) => {
+      if (offset > lastIdx) {
+        frag.appendChild(document.createTextNode(textNode.nodeValue.slice(lastIdx, offset)));
+      }
+      const num = parseInt(n, 10);
+      if (num >= 1 && num <= 99) {
+        const a = document.createElement('a');
+        a.href = `#cite-${num}`;
+        a.className = 'cite-link';
+        a.textContent = match;
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          switchTab('citations');
+          const target = document.getElementById(`cite-${num}`);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        frag.appendChild(a);
+      } else {
+        frag.appendChild(document.createTextNode(match));
+      }
+      lastIdx = offset + match.length;
+    });
+    if (lastIdx < textNode.nodeValue.length) {
+      frag.appendChild(document.createTextNode(textNode.nodeValue.slice(lastIdx)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+}
+
 function renderAnswer(text) {
   document.getElementById('answer-container').innerHTML = marked.parse(text);
+  _linkifyCitationMarkers(document.getElementById('answer-container'));
+}
+
+function _citeTypeBadge(sourceType) {
+  const t = (sourceType || 'unknown').toLowerCase();
+  const valid = ['pdf','markdown','code','email'];
+  const cls = valid.includes(t) ? `cite-badge-${t}` : 'cite-badge-unknown';
+  const el = document.createElement('span');
+  el.className = `cite-type-badge ${cls}`;
+  el.textContent = t;
+  return el;
 }
 
 function renderCitations(citations) {
   const container = document.getElementById('citations-container');
   if (!citations?.length) {
-    container.innerHTML = '<div class="panel-empty">No se detectaron citas en la respuesta.</div>';
+    container.textContent = '';
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'No se detectaron citas en la respuesta.';
+    container.appendChild(empty);
     return;
   }
-  container.innerHTML = '';
+  container.textContent = '';
   citations.forEach((c, i) => {
     const card = document.createElement('div');
     card.className = 'citation-card';
-    const loc = c.page_number ? `pág. ${c.page_number}` : (c.line_start ? `líneas ${c.line_start}–${c.line_end || '?'}` : '');
-    const snippet = c.snippet ? `<div class="cite-snippet">"${esc(c.snippet)}"</div>` : '';
-    card.innerHTML = `
-      <span class="cite-num">[${i + 1}]</span>
-      <div class="cite-source">${esc(c.source_path || '—')}<span class="cite-type">${esc(c.source_type || '')}</span></div>
-      ${loc ? `<div class="cite-loc">${esc(loc)}</div>` : ''}
-      ${snippet}`;
+    card.id = `cite-${i + 1}`;
+
+    // Header: num + source + badge
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:4px';
+    const num = document.createElement('span');
+    num.className = 'cite-num';
+    num.textContent = `[${i + 1}]`;
+    const srcEl = document.createElement('div');
+    srcEl.className = 'cite-source';
+    srcEl.style.flex = '1';
+    srcEl.textContent = c.source_path || '—';
+    srcEl.appendChild(_citeTypeBadge(c.source_type));
+    header.append(num, srcEl);
+    card.appendChild(header);
+
+    // Location
+    const loc = c.page_number
+      ? `pág. ${c.page_number}`
+      : (c.line_start ? `líneas ${c.line_start}–${c.line_end || '?'}` : '');
+    if (loc) {
+      const locEl = document.createElement('div');
+      locEl.className = 'cite-loc';
+      locEl.textContent = loc;
+      card.appendChild(locEl);
+    }
+
+    // Snippet
+    if (c.snippet) {
+      const snip = document.createElement('div');
+      snip.className = 'cite-snippet';
+      snip.textContent = `"${c.snippet}"`;
+      card.appendChild(snip);
+    }
+
+    // Score
+    if (typeof c.relevance_score === 'number') {
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'cite-score';
+      scoreEl.appendChild(document.createTextNode('Score: '));
+      const s = document.createElement('span');
+      s.textContent = c.relevance_score.toFixed(3);
+      scoreEl.appendChild(s);
+      card.appendChild(scoreEl);
+    }
+
     container.appendChild(card);
   });
-  // Badge on tab
   document.querySelectorAll('.tab-btn')[1].textContent = `Citas (${citations.length})`;
 }
 
@@ -1168,6 +1329,97 @@ async function loadSessions() {
 // ── Helpers ───────────────────────────────────────────────────────────────
 function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────
+async function loadAudit() {
+  if (!window._authToken) return;
+  const userId = document.getElementById('audit-filter-user').value.trim();
+  const status = document.getElementById('audit-filter-status').value;
+  const dateFrom = document.getElementById('audit-filter-date-from').value.trim();
+  const dateTo = document.getElementById('audit-filter-date-to').value.trim();
+
+  const params = new URLSearchParams();
+  if (userId) params.set('user_id', userId);
+  if (status) params.set('status', status);
+  if (dateFrom) params.set('date_from', dateFrom + 'T00:00:00+00:00');
+  if (dateTo) params.set('date_to', dateTo + 'T23:59:59+00:00');
+  params.set('limit', '100');
+
+  const headers = { Authorization: 'Bearer ' + window._authToken };
+
+  const [statsRes, eventsRes] = await Promise.all([
+    fetch('/audit/stats', { headers }),
+    fetch('/audit/events?' + params.toString(), { headers }),
+  ]);
+
+  if (statsRes.ok) {
+    const s = await statsRes.json();
+    renderAuditStats(s);
+  }
+  if (eventsRes.ok) {
+    const events = await eventsRes.json();
+    renderAuditEvents(events);
+  }
+}
+
+function renderAuditStats(s) {
+  const bar = document.getElementById('audit-stats-bar');
+  bar.textContent = '';
+
+  const items = [
+    ['Total', s.total_events],
+    ['Latencia media', s.latency_ms_mean != null ? s.latency_ms_mean.toFixed(0) + ' ms' : '—'],
+    ['Critique medio', s.critique_score_mean != null ? s.critique_score_mean.toFixed(2) : '—'],
+  ];
+  items.forEach(([label, value]) => {
+    const el = document.createElement('div');
+    el.appendChild(document.createTextNode(label + ': '));
+    const sp = document.createElement('span');
+    sp.textContent = String(value);
+    el.appendChild(sp);
+    bar.appendChild(el);
+  });
+}
+
+function renderAuditEvents(events) {
+  const container = document.getElementById('audit-container');
+  container.textContent = '';
+
+  if (!events.length) {
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'Sin eventos.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.className = 'audit-event-row header';
+  ['Fecha', 'Tipo', 'Usuario', 'Latencia', 'Estado'].forEach(h => {
+    const cell = document.createElement('div');
+    cell.textContent = h;
+    header.appendChild(cell);
+  });
+  container.appendChild(header);
+
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'audit-event-row';
+
+    const date = ev.created_at ? ev.created_at.slice(0, 10) : '—';
+    const latency = ev.latency_ms != null ? Math.round(ev.latency_ms) + ' ms' : '—';
+
+    [date, ev.event_type || '—', ev.user_id || '—', latency, ev.status || '—'].forEach((val, i) => {
+      const cell = document.createElement('div');
+      cell.textContent = val;
+      if (i === 4) {
+        cell.className = ev.status === 'error' ? 'audit-status-error' : 'audit-status-ok';
+      }
+      row.appendChild(cell);
+    });
+    container.appendChild(row);
+  });
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
