@@ -98,14 +98,15 @@ class HybridRetriever:
     ) -> tuple[list[dict], list[dict]]:
         """Lanza BM25 y vectorial en paralelo (I/O-bound)."""
         with ThreadPoolExecutor(max_workers=2) as pool:
-            bm25_future = pool.submit(self._bm25_search, query)
+            bm25_future = pool.submit(self._bm25_search, query, where)
             vector_future = pool.submit(self._vector_search, query, where)
             return bm25_future.result(), vector_future.result()
 
-    def _bm25_search(self, query: str) -> list[dict]:
+    def _bm25_search(self, query: str, where: dict | None = None) -> list[dict]:
         bm25 = self.bm25 or get_bm25_retriever()
         try:
-            return bm25.query(query, top_k=self.bm25_top_k)
+            results = bm25.query(query, top_k=self.bm25_top_k)
+            return _apply_corpus_filter(results, where)
         except Exception as exc:
             logger.warning("BM25 search failed: %s", exc)
             return []
@@ -140,6 +141,32 @@ def _default_vector_fn(
 
 
 _singleton: HybridRetriever | None = None
+
+
+def _apply_corpus_filter(docs: list[dict], where: dict | None) -> list[dict]:
+    """Post-filters BM25 results by corpus scope to match ChromaDB where semantics.
+
+    where=None            → no filter (admin or open mode)
+    where={"corpus": X}   → keep only docs whose metadata.corpus matches X
+    """
+    if where is None:
+        return docs
+
+    corpus_filter = where.get("corpus")
+    if corpus_filter is None:
+        return docs
+
+    # {"corpus": "__no_access__"} → user has no scopes, block everything
+    if corpus_filter == "__no_access__":
+        return []
+
+    # {"corpus": {"$in": [...]}}
+    if isinstance(corpus_filter, dict):
+        allowed = set(corpus_filter.get("$in", []))
+        return [d for d in docs if d.get("metadata", {}).get("corpus") in allowed]
+
+    # {"corpus": "exact-value"}
+    return [d for d in docs if d.get("metadata", {}).get("corpus") == corpus_filter]
 
 
 def get_hybrid_retriever() -> HybridRetriever:
