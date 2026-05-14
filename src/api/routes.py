@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from src.agent.state import HumanFeedback
 from src.auth.dependencies import get_current_user
@@ -14,9 +14,21 @@ from src.auth.models import TokenData
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_MAX_QUERY_LENGTH = 2000
+
 
 class ResearchRequest(BaseModel):
     query: str
+
+    @field_validator("query")
+    @classmethod
+    def query_not_empty_and_bounded(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("query cannot be empty")
+        if len(v) > _MAX_QUERY_LENGTH:
+            raise ValueError(f"query exceeds {_MAX_QUERY_LENGTH} characters")
+        return v
 
 
 # ---------------------------------------------------------------------------
