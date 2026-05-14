@@ -27,6 +27,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.audit.redact import redact_query
+
 logger = logging.getLogger(__name__)
 
 _CREATE_TABLE = """
@@ -92,6 +94,7 @@ class AuditStore:
         """Inserta un evento. Devuelve el event_id generado."""
         event_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc).isoformat()
+        query = redact_query(query)
         try:
             with self._conn() as conn:
                 conn.execute(
