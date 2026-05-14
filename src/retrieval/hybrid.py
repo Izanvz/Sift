@@ -61,36 +61,7 @@ class HybridRetriever:
         Returns:
             Lista de docs ordenados por relevance_score desc.
         """
-        n_candidates = candidates or settings.retrieval_top_k
-
-        # 1. Búsqueda paralela
-        bm25_results, vector_results = self._search_parallel(query, where)
-        logger.info(
-            "Hybrid: bm25=%d, vector=%d, query=%r",
-            len(bm25_results), len(vector_results), query[:80],
-        )
-
-        # 2. RRF fusion
-        if not bm25_results and not vector_results:
-            return []
-
-        fused = reciprocal_rank_fusion(
-            [bm25_results, vector_results],
-            k=self.rrf_k,
-            id_key="id",
-            top_k=n_candidates,
-        )
-
-        # 3. Reranker
-        reranked = self.reranker.rerank(query, fused, top_k=top_k)
-
-        # 4. Normalizar score final
-        for doc in reranked:
-            doc["relevance_score"] = doc.get(
-                "rerank_score",
-                doc.get("rrf_score", 0.0),
-            )
-
+        _, _, _, reranked = self._run_pipeline(query, top_k, candidates, where)
         return reranked
 
     def retrieve_with_explain(
@@ -100,30 +71,15 @@ class HybridRetriever:
         candidates: int | None = None,
         where: dict | None = None,
     ) -> tuple[list[dict], dict]:
-        """Pipeline hibrido completo con debug de cada etapa.
+        """Pipeline híbrido completo con debug de cada etapa.
 
         Returns:
-            (docs, debug) donde docs es identico a retrieve() y debug
+            (docs, debug) donde docs es idéntico a retrieve() y debug
             contiene bm25_top, vector_top, rrf_top, final_top.
         """
-        n_candidates = candidates or settings.retrieval_top_k
-
-        bm25_results, vector_results = self._search_parallel(query, where)
-
-        if not bm25_results and not vector_results:
-            return [], {"query": query, "bm25_top": [], "vector_top": [], "rrf_top": [], "final_top": []}
-
-        fused = reciprocal_rank_fusion(
-            [bm25_results, vector_results],
-            k=self.rrf_k,
-            id_key="id",
-            top_k=n_candidates,
+        bm25_results, vector_results, fused, reranked = self._run_pipeline(
+            query, top_k, candidates, where
         )
-
-        reranked = self.reranker.rerank(query, fused, top_k=top_k)
-
-        for doc in reranked:
-            doc["relevance_score"] = doc.get("rerank_score", doc.get("rrf_score", 0.0))
 
         def _preview(doc: dict) -> dict:
             meta = doc.get("metadata", {}) or {}
@@ -159,7 +115,47 @@ class HybridRetriever:
             ],
         }
 
+        if not bm25_results and not vector_results:
+            debug = {"query": query, "bm25_top": [], "vector_top": [], "rrf_top": [], "final_top": []}
+
         return reranked, debug
+
+    def _run_pipeline(
+        self,
+        query: str,
+        top_k: int,
+        candidates: int | None,
+        where: dict | None,
+    ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+        """Ejecuta el pipeline completo y devuelve resultados intermedios.
+
+        Returns:
+            (bm25_results, vector_results, fused, reranked)
+        """
+        n_candidates = candidates or settings.retrieval_top_k
+
+        bm25_results, vector_results = self._search_parallel(query, where)
+        logger.info(
+            "Hybrid: bm25=%d, vector=%d, query=%r",
+            len(bm25_results), len(vector_results), query[:80],
+        )
+
+        if not bm25_results and not vector_results:
+            return [], [], [], []
+
+        fused = reciprocal_rank_fusion(
+            [bm25_results, vector_results],
+            k=self.rrf_k,
+            id_key="id",
+            top_k=n_candidates,
+        )
+
+        reranked = self.reranker.rerank(query, fused, top_k=top_k)
+
+        for doc in reranked:
+            doc["relevance_score"] = doc.get("rerank_score", doc.get("rrf_score", 0.0))
+
+        return bm25_results, vector_results, fused, reranked
 
     def _search_parallel(
         self, query: str, where: dict | None
