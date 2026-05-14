@@ -116,13 +116,15 @@ def retrieve(state: SiftState) -> dict:
     ) if user_id else None
     where = build_scope_filter(user_token)
 
+    retrieval_debug: dict | None = None
     try:
-        results = get_hybrid_retriever().retrieve(
+        results, retrieval_debug = get_hybrid_retriever().retrieve_with_explain(
             query,
             top_k=settings.synthesis_top_k,
             candidates=settings.retrieval_top_k,
             where=where,
         )
+        retrieval_debug["query_original"] = state.get("metadata", {}).get("query", query)
     except Exception as exc:
         logger.warning("Hybrid retrieval failed: %s", exc)
         results = []
@@ -140,7 +142,7 @@ def retrieve(state: SiftState) -> dict:
             metadata=meta,
         ))
 
-    return {"chunks": chunks}
+    return {"chunks": chunks, "retrieval_debug": retrieval_debug}
 
 
 # ---------------------------------------------------------------------------
