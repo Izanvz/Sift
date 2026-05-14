@@ -553,6 +553,11 @@
     .cite-badge-unknown  { background: var(--bg3);       color: var(--text3); }
     .cite-score { font-size: 0.65rem; color: var(--text3); margin-top: 3px; }
     .cite-score span { color: var(--green); font-weight: 600; }
+    .cite-link {
+      color: var(--accent); text-decoration: none;
+      font-weight: 600; padding: 0 1px; border-radius: 3px;
+    }
+    .cite-link:hover { background: var(--bg3); text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -999,8 +1004,48 @@ async function fetchStateForModal(sessionId) {
   } catch {}
 }
 
+function _linkifyCitationMarkers(container) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+
+  textNodes.forEach(textNode => {
+    if (!/\[\d{1,2}\]/.test(textNode.nodeValue)) return;
+    const frag = document.createDocumentFragment();
+    let lastIdx = 0;
+    textNode.nodeValue.replace(/\[(\d{1,2})\]/g, (match, n, offset) => {
+      if (offset > lastIdx) {
+        frag.appendChild(document.createTextNode(textNode.nodeValue.slice(lastIdx, offset)));
+      }
+      const num = parseInt(n, 10);
+      if (num >= 1 && num <= 99) {
+        const a = document.createElement('a');
+        a.href = `#cite-${num}`;
+        a.className = 'cite-link';
+        a.textContent = match;
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          switchTab('citations');
+          const target = document.getElementById(`cite-${num}`);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        frag.appendChild(a);
+      } else {
+        frag.appendChild(document.createTextNode(match));
+      }
+      lastIdx = offset + match.length;
+    });
+    if (lastIdx < textNode.nodeValue.length) {
+      frag.appendChild(document.createTextNode(textNode.nodeValue.slice(lastIdx)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+}
+
 function renderAnswer(text) {
   document.getElementById('answer-container').innerHTML = marked.parse(text);
+  _linkifyCitationMarkers(document.getElementById('answer-container'));
 }
 
 function _citeTypeBadge(sourceType) {
