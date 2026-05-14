@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     sqlite_db_path: str = "data/sift.db"
     audit_db_path: str = "data/audit.db"
 
+    # --- Embeddings ---
+    embedding_model: str = "nomic-embed-text"   # Ollama embedding model para RAGAS judge
+
     # --- Retrieval ---
     retrieval_top_k: int = 20           # Chunks candidatos antes del reranker
     synthesis_top_k: int = 5            # Chunks finales que van al prompt de síntesis

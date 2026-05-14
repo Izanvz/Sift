@@ -7,6 +7,8 @@ from src.ingestion import chunker as chunker_module
 
 logger = logging.getLogger(__name__)
 
+_MAX_DOC_BYTES = 10 * 1024 * 1024  # 10 MB
+
 
 def ingest(
     source_path: str,
@@ -33,6 +35,11 @@ def ingest(
 
             if not doc.content.strip():
                 logger.info("Skipped (empty content): %s", file_path)
+                stats["skipped"] += 1
+                continue
+
+            if len(doc.content.encode("utf-8")) > _MAX_DOC_BYTES:
+                logger.warning("Skipped (exceeds %d MB): %s", _MAX_DOC_BYTES // 1024 // 1024, file_path)
                 stats["skipped"] += 1
                 continue
 
