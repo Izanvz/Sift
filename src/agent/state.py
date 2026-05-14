@@ -73,6 +73,7 @@ class SiftState(TypedDict):
     chunks: list[Chunk]             # Chunks recuperados (acumulativos entre iteraciones)
     relevance_scores: list[float]   # Historial de scores de relevancia
     iterations: int                 # Contador de ciclos de búsqueda
+    retrieval_debug: dict | None    # Debug pipeline: bm25_top, vector_top, rrf_top, final_top
 
     # Generación
     answer: str                     # Respuesta con marcadores [N]
