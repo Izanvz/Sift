@@ -783,120 +783,89 @@
   </div>
 </header>
 
-<div class="main">
+<div class="app-body">
+  <div class="chat-area-wrap">
+    <div class="chat-area" id="chat-area">
+      <div id="welcome" class="welcome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 7v5M8.5 11h5"/>
+        </svg>
+        <h2>Bienvenido a Sift</h2>
+        <p>Escribe tu consulta abajo para investigar tus documentos indexados.</p>
+      </div>
+    </div>
+  </div>
 
-  <!-- LEFT PANEL -->
-  <div class="panel-left">
-    <div class="panel-section">
-      <div class="section-label">Nueva consulta</div>
-      <textarea id="query" placeholder="Pregunta sobre los documentos indexados... Sé específico." maxlength="500"></textarea>
-      <div class="char-count"><span id="char-count">0</span>/500</div>
-      <button class="btn-primary" id="btn-start" onclick="startResearch()">
-        <div class="btn-spinner"></div>
-        <span class="btn-text">Buscar &amp; sintetizar</span>
+  <div class="drawer" id="drawer">
+    <div class="drawer-handle">
+      <button class="dtab active" onclick="toggleDrawer('pipeline')" id="dtab-pipeline">Pipeline</button>
+      <button class="dtab" onclick="toggleDrawer('log')" id="dtab-log">Log</button>
+      <button class="dtab" onclick="toggleDrawer('citations')" id="dtab-citations">Citas</button>
+      <button class="dtab" onclick="toggleDrawer('critique')" id="dtab-critique">Crítica</button>
+      <button class="dtab" onclick="toggleDrawer('retrieval')" id="dtab-retrieval">Retrieval</button>
+      <button class="dtab" onclick="toggleDrawer('audit')" id="dtab-audit">Audit</button>
+      <button class="dtab" onclick="toggleDrawer('sessions')" id="dtab-sessions">Sesiones</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <!-- Pipeline panel -->
+      <div class="dpanel active" id="dpanel-pipeline">
+        <div class="graph-section">
+          <div class="section-label">Pipeline</div>
+          <div class="nodes-grid" id="nodes-grid"></div>
+        </div>
+      </div>
+      <!-- Log panel -->
+      <div class="dpanel" id="dpanel-log">
+        <div class="log-section">
+          <div id="log-entries"></div>
+        </div>
+      </div>
+      <!-- Citations panel -->
+      <div class="dpanel" id="dpanel-citations">
+        <div id="citations-container"><div class="panel-empty">Sin citas.</div></div>
+      </div>
+      <!-- Critique panel -->
+      <div class="dpanel" id="dpanel-critique">
+        <div id="critique-container"><div class="panel-empty">Sin crítica.</div></div>
+      </div>
+      <!-- Retrieval panel -->
+      <div class="dpanel" id="dpanel-retrieval">
+        <div id="retrieval-container"><div class="panel-empty">Sin datos de retrieval.</div></div>
+      </div>
+      <!-- Audit panel -->
+      <div class="dpanel" id="dpanel-audit">
+        <div id="audit-filters">
+          <input type="text" id="audit-filter-user" placeholder="user_id">
+          <select id="audit-filter-status">
+            <option value="">todos</option>
+            <option value="ok">ok</option>
+            <option value="error">error</option>
+          </select>
+          <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
+          <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
+          <button onclick="loadAudit()">Filtrar</button>
+        </div>
+        <div class="audit-stats-bar" id="audit-stats-bar"></div>
+        <div id="audit-container"></div>
+      </div>
+      <!-- Sessions panel -->
+      <div class="dpanel" id="dpanel-sessions">
+        <div class="section-label" style="padding: 8px 0 6px">Sesiones recientes</div>
+        <div id="sessions-list"><div class="panel-empty">Sin sesiones.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-input-wrap">
+    <div class="chat-input-bar">
+      <textarea id="query" placeholder="¿Qué quieres investigar? (Enter para enviar, Shift+Enter para nueva línea)" rows="1"></textarea>
+      <button id="send-btn" onclick="startResearch()" title="Enviar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+        </svg>
       </button>
     </div>
-    <div class="panel-section" style="flex:1; overflow-y:auto;">
-      <div class="section-label">Sesiones</div>
-      <div id="sessions-list">
-        <div class="sessions-empty">Sin sesiones aún.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CENTER PANEL -->
-  <div class="panel-center">
-
-    <!-- Graph DAG (Sift v2 nodes) -->
-    <div class="graph-section">
-      <div class="section-label">Pipeline</div>
-      <div class="graph-dag" id="graph-dag">
-        <div class="node-pill" id="node-route_query"><div class="dot"></div>route query</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-retrieve"><div class="dot"></div>retrieve</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-gather"><div class="dot"></div>gather</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-evaluate_relevance"><div class="dot"></div>evaluate</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-rewrite_query" style="opacity:.75"><div class="dot"></div>rewrite query</div>
-        <span class="dag-loop" title="loop si baja relevancia">⟳</span>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-synthesize"><div class="dot"></div>synthesize</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-self_critique"><div class="dot"></div>critique</div>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-rewrite_answer" style="opacity:.75"><div class="dot"></div>rewrite ans</div>
-        <span class="dag-loop" title="loop si faithfulness baja">⟳</span>
-        <span class="dag-arrow">→</span>
-        <div class="node-pill" id="node-format_response"><div class="dot"></div>format</div>
-      </div>
-    </div>
-
-    <!-- Event log -->
-    <div class="log-section">
-      <div class="section-label">Log de eventos</div>
-      <div class="event-log" id="event-log">
-        <div class="log-entry log-empty">Esperando consulta...</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- RIGHT PANEL -->
-  <div class="panel-right">
-    <div class="right-tabs">
-      <button class="tab-btn active" onclick="switchTab('answer')">Respuesta</button>
-      <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
-      <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
-      <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval</button>
-      <button class="tab-btn" onclick="switchTab('audit')">Audit</button>
-    </div>
-
-    <!-- Answer tab -->
-    <div class="tab-panel active" id="tab-answer">
-      <div id="answer-container">
-        <div class="panel-empty">La respuesta aparecerá aquí al finalizar.</div>
-      </div>
-    </div>
-
-    <!-- Citations tab -->
-    <div class="tab-panel" id="tab-citations">
-      <div id="citations-container">
-        <div class="panel-empty">Las fuentes citadas aparecerán aquí.</div>
-      </div>
-    </div>
-
-    <!-- Critique tab -->
-    <div class="tab-panel" id="tab-critique">
-      <div id="critique-container">
-        <div class="panel-empty">El análisis de calidad aparecerá aquí.</div>
-      </div>
-    </div>
-
-    <!-- Retrieval Debug tab -->
-    <div class="tab-panel" id="tab-retrieval">
-      <div id="retrieval-container">
-        <div class="panel-empty">El debug de retrieval aparecerá aquí.</div>
-      </div>
-    </div>
-
-    <!-- Audit tab -->
-    <div class="tab-panel" id="tab-audit">
-      <div id="audit-filters">
-        <input type="text" id="audit-filter-user" placeholder="user_id">
-        <select id="audit-filter-status">
-          <option value="">todos</option>
-          <option value="ok">ok</option>
-          <option value="error">error</option>
-        </select>
-        <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
-        <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
-        <button onclick="loadAudit()">Filtrar</button>
-      </div>
-      <div class="audit-stats-bar" id="audit-stats-bar"></div>
-      <div id="audit-container"></div>
-    </div>
+    <div class="char-count"><span id="char-count">0</span>/2000</div>
   </div>
 </div>
 
@@ -1039,14 +1008,25 @@ async function init() {
   loadSessions();
 }
 
-// ── Tabs ─────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const names = ['answer', 'citations', 'critique', 'retrieval', 'audit'];
-    b.classList.toggle('active', names[i] === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`tab-${name}`).classList.add('active');
+// ── Drawer toggle ─────────────────────────────────────────────────────────
+function toggleDrawer(name) {
+  const drawer = document.getElementById('drawer');
+  const currentActive = document.querySelector('.dtab.active');
+  const clickedTab = document.getElementById(`dtab-${name}`);
+  const currentPanel = document.querySelector('.dpanel.active');
+
+  // If same tab clicked and drawer is open → close
+  if (currentActive === clickedTab && drawer.classList.contains('open')) {
+    drawer.classList.remove('open');
+    return;
+  }
+
+  // Open drawer and switch panel
+  drawer.classList.add('open');
+  document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+  clickedTab.classList.add('active');
+  document.querySelectorAll('.dpanel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`dpanel-${name}`).classList.add('active');
 }
 
 // ── Char counter ─────────────────────────────────────────────────────────
@@ -1070,12 +1050,15 @@ function resetNodes() {
 
 // ── Logging ───────────────────────────────────────────────────────────────
 function log(msg, type = 'info') {
-  const el = document.getElementById('event-log');
-  el.querySelector('.log-empty')?.remove();
+  const el = document.getElementById('log-entries');
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
-  const ts = new Date().toLocaleTimeString('es-ES', { hour12: false });
-  entry.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  const tsEl = document.createElement('span');
+  tsEl.className = 'log-time';
+  tsEl.textContent = new Date().toLocaleTimeString('es-ES', { hour12: false });
+  const msgEl = document.createElement('span');
+  msgEl.textContent = msg;
+  entry.append(tsEl, msgEl);
   el.appendChild(entry);
   el.scrollTop = el.scrollHeight;
 }
@@ -1085,18 +1068,37 @@ async function startResearch() {
   const query = document.getElementById('query').value.trim();
   if (!query) { document.getElementById('query').focus(); return; }
 
-  const btn = document.getElementById('btn-start');
+  const btn = document.getElementById('send-btn');
   btn.disabled = true;
-  btn.classList.add('loading');
 
-  document.getElementById('event-log').innerHTML = '';
-  document.getElementById('answer-container').innerHTML = '<div class="panel-empty">Generando...</div>';
+  document.getElementById('log-entries').textContent = '';
   document.getElementById('citations-container').innerHTML = '<div class="panel-empty">Recuperando fuentes...</div>';
   document.getElementById('critique-container').innerHTML = '<div class="panel-empty">Evaluando...</div>';
   document.getElementById('retrieval-container').innerHTML = '<div class="panel-empty">Cargando debug de retrieval...</div>';
   resetNodes();
 
-  log(`Consulta: "<em>${query.slice(0, 70)}${query.length > 70 ? '…' : ''}</em>"`);
+  // Add user message to chat
+  const chatArea = document.getElementById('chat-area');
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chat-message user';
+  const userMeta = document.createElement('div');
+  userMeta.className = 'msg-meta';
+  userMeta.textContent = currentUser?.username || 'Tú';
+  const userQ = document.createElement('div');
+  userQ.className = 'msg-query';
+  userQ.textContent = query;
+  userMsg.append(userMeta, userQ);
+  chatArea.appendChild(userMsg);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  // Clear query input
+  document.getElementById('query').value = '';
+  document.getElementById('char-count').textContent = '0';
+
+  const shortQ = query.slice(0, 70) + (query.length > 70 ? '…' : '');
+  log('Consulta: "' + shortQ + '"');
 
   try {
     const resp = await apiFetch('/research', {
@@ -1125,10 +1127,9 @@ async function startResearch() {
       }
     }
   } catch (err) {
-    log(`✗ ${err.message}`, 'error');
+    log('✗ ' + err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.classList.remove('loading');
     loadSessions();
   }
 }
@@ -1138,17 +1139,17 @@ function handleSSE(data) {
   if (session_id) currentSessionId = session_id;
 
   if (status === 'started') {
-    log(`Sesión <span style="color:var(--accent);font-family:monospace">${session_id?.slice(0,8)}</span> iniciada`, 'done');
+    log('Sesión ' + (session_id?.slice(0,8) || '?') + ' iniciada', 'done');
     return;
   }
   if (status === 'running' && node) {
     setNodeState(node, 'running');
-    log(`▶ ${node.replace(/_/g,' ')}`, 'running');
+    log('▶ ' + node.replace(/_/g,' '), 'running');
     return;
   }
   if (status === 'done' && node) {
     setNodeState(node, 'done');
-    log(`✓ ${node.replace(/_/g,' ')}`, 'done');
+    log('✓ ' + node.replace(/_/g,' '), 'done');
     // Fetch state para obtener citations + critique cuando terminan esos nodos
     if (node === 'format_response') fetchFinalState(currentSessionId);
     return;
@@ -1166,7 +1167,7 @@ function handleSSE(data) {
     return;
   }
   if (status === 'error') {
-    log(`✗ ${data.message || 'Error desconocido'}`, 'error');
+    log('✗ ' + (data.message || 'Error desconocido'), 'error');
   }
 }
 
@@ -1219,8 +1220,8 @@ function _linkifyCitationMarkers(container) {
         a.textContent = match;
         a.addEventListener('click', e => {
           e.preventDefault();
-          switchTab('citations');
-          const target = document.getElementById(`cite-${num}`);
+          toggleDrawer('citations');
+          const target = document.getElementById('cite-' + num);
           if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
         frag.appendChild(a);
@@ -1237,8 +1238,27 @@ function _linkifyCitationMarkers(container) {
 }
 
 function renderAnswer(text) {
-  document.getElementById('answer-container').innerHTML = marked.parse(text);
-  _linkifyCitationMarkers(document.getElementById('answer-container'));
+  const chatArea = document.getElementById('chat-area');
+  // Remove welcome screen if present
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+  // Find existing assistant message or create one
+  let msgEl = chatArea.querySelector('.chat-message.assistant:last-child');
+  if (!msgEl) {
+    msgEl = document.createElement('div');
+    msgEl.className = 'chat-message assistant';
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.textContent = 'Sift';
+    const answer = document.createElement('div');
+    answer.className = 'msg-answer';
+    msgEl.append(meta, answer);
+    chatArea.appendChild(msgEl);
+  }
+  const answerEl = msgEl.querySelector('.msg-answer');
+  answerEl.innerHTML = marked.parse(text);
+  _linkifyCitationMarkers(answerEl);
+  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 function _citeTypeBadge(sourceType) {
@@ -1313,7 +1333,8 @@ function renderCitations(citations) {
 
     container.appendChild(card);
   });
-  document.querySelectorAll('.tab-btn')[1].textContent = `Citas (${citations.length})`;
+  const citTab = document.getElementById('dtab-citations');
+  if (citTab) citTab.textContent = 'Citas (' + citations.length + ')';
 }
 
 function renderCritique(critique) {
@@ -1429,7 +1450,7 @@ async function renderRetrieval(sessionId) {
 async function sendHumanFeedback(action) {
   const content = document.getElementById('human-comment').value || `Action: ${action}`;
   document.getElementById('modal-overlay').classList.remove('active');
-  log(`Feedback enviado: <strong>${action}</strong>`, 'running');
+  log('Feedback enviado: ' + action, 'running');
   try {
     const r = await apiFetch(`/research/${currentSessionId}/resume`, {
       method: 'POST',
@@ -1443,7 +1464,7 @@ async function sendHumanFeedback(action) {
       loadSessions();
     }
   } catch (err) {
-    log(`✗ ${err.message}`, 'error');
+    log('✗ ' + err.message, 'error');
   }
 }
 
