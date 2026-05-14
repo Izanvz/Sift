@@ -558,6 +558,32 @@
       font-weight: 600; padding: 0 1px; border-radius: 3px;
     }
     .cite-link:hover { background: var(--bg3); text-decoration: underline; }
+
+    /* AUDIT DASHBOARD */
+    #audit-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    #audit-filters input, #audit-filters select {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text1); padding: 4px 8px; font-size: 0.8rem;
+    }
+    #audit-filters button {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.8rem;
+    }
+    .audit-stats-bar {
+      display: flex; gap: 16px; margin-bottom: 10px;
+      font-size: 0.78rem; color: var(--text2);
+    }
+    .audit-stats-bar span { color: var(--text1); font-weight: 600; }
+    .audit-event-row {
+      display: grid;
+      grid-template-columns: 90px 80px 1fr 80px 70px;
+      gap: 6px;
+      padding: 5px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--text2); align-items: center;
+    }
+    .audit-event-row.header { color: var(--text3); font-size: 0.7rem; }
+    .audit-status-ok  { color: var(--green); }
+    .audit-status-error { color: var(--red); }
   </style>
 </head>
 <body>
@@ -679,6 +705,7 @@
       <button class="tab-btn" onclick="switchTab('citations')">Citas</button>
       <button class="tab-btn" onclick="switchTab('critique')">Critique</button>
       <button class="tab-btn" onclick="switchTab('retrieval')">Retrieval</button>
+      <button class="tab-btn" onclick="switchTab('audit')">Audit</button>
     </div>
 
     <!-- Answer tab -->
@@ -707,6 +734,23 @@
       <div id="retrieval-container">
         <div class="panel-empty">El debug de retrieval aparecerá aquí.</div>
       </div>
+    </div>
+
+    <!-- Audit tab -->
+    <div class="tab-panel" id="tab-audit">
+      <div id="audit-filters">
+        <input type="text" id="audit-filter-user" placeholder="user_id">
+        <select id="audit-filter-status">
+          <option value="">todos</option>
+          <option value="ok">ok</option>
+          <option value="error">error</option>
+        </select>
+        <input type="text" id="audit-filter-date-from" placeholder="desde (YYYY-MM-DD)">
+        <input type="text" id="audit-filter-date-to" placeholder="hasta (YYYY-MM-DD)">
+        <button onclick="loadAudit()">Filtrar</button>
+      </div>
+      <div class="audit-stats-bar" id="audit-stats-bar"></div>
+      <div id="audit-container"></div>
     </div>
   </div>
 </div>
@@ -747,6 +791,7 @@
 <script>
 // ── State ────────────────────────────────────────────────────────────────
 let token = sessionStorage.getItem('sift_token') || null;
+window._authToken = token;
 let currentUser = null;
 let currentSessionId = null;
 
@@ -775,6 +820,7 @@ async function doLogin() {
     }
     const data = await r.json();
     token = data.access_token;
+    window._authToken = token;
     sessionStorage.setItem('sift_token', token);
     document.getElementById('login-overlay').classList.remove('active');
     await init();
@@ -789,6 +835,7 @@ async function doLogin() {
 
 function doLogout() {
   token = null;
+  window._authToken = null;
   currentUser = null;
   sessionStorage.removeItem('sift_token');
   document.getElementById('login-overlay').classList.add('active');
@@ -815,9 +862,10 @@ async function init() {
   if (token) {
     try {
       const r = await fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) { token = null; sessionStorage.removeItem('sift_token'); }
+      if (!r.ok) { token = null; window._authToken = null; sessionStorage.removeItem('sift_token'); }
       else {
         currentUser = await r.json();
+        window._authToken = token;
         document.getElementById('user-chip').style.display = 'flex';
         document.getElementById('user-chip-name').textContent = currentUser.username;
         document.getElementById('login-overlay').classList.remove('active');
@@ -849,7 +897,7 @@ async function init() {
 // ── Tabs ─────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    const names = ['answer', 'citations', 'critique', 'retrieval'];
+    const names = ['answer', 'citations', 'critique', 'retrieval', 'audit'];
     b.classList.toggle('active', names[i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -1281,6 +1329,97 @@ async function loadSessions() {
 // ── Helpers ───────────────────────────────────────────────────────────────
 function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Audit ─────────────────────────────────────────────────────────────────
+async function loadAudit() {
+  if (!window._authToken) return;
+  const userId = document.getElementById('audit-filter-user').value.trim();
+  const status = document.getElementById('audit-filter-status').value;
+  const dateFrom = document.getElementById('audit-filter-date-from').value.trim();
+  const dateTo = document.getElementById('audit-filter-date-to').value.trim();
+
+  const params = new URLSearchParams();
+  if (userId) params.set('user_id', userId);
+  if (status) params.set('status', status);
+  if (dateFrom) params.set('date_from', dateFrom + 'T00:00:00+00:00');
+  if (dateTo) params.set('date_to', dateTo + 'T23:59:59+00:00');
+  params.set('limit', '100');
+
+  const headers = { Authorization: 'Bearer ' + window._authToken };
+
+  const [statsRes, eventsRes] = await Promise.all([
+    fetch('/audit/stats', { headers }),
+    fetch('/audit/events?' + params.toString(), { headers }),
+  ]);
+
+  if (statsRes.ok) {
+    const s = await statsRes.json();
+    renderAuditStats(s);
+  }
+  if (eventsRes.ok) {
+    const events = await eventsRes.json();
+    renderAuditEvents(events);
+  }
+}
+
+function renderAuditStats(s) {
+  const bar = document.getElementById('audit-stats-bar');
+  bar.textContent = '';
+
+  const items = [
+    ['Total', s.total_events],
+    ['Latencia media', s.latency_ms_mean != null ? s.latency_ms_mean.toFixed(0) + ' ms' : '—'],
+    ['Critique medio', s.critique_score_mean != null ? s.critique_score_mean.toFixed(2) : '—'],
+  ];
+  items.forEach(([label, value]) => {
+    const el = document.createElement('div');
+    el.appendChild(document.createTextNode(label + ': '));
+    const sp = document.createElement('span');
+    sp.textContent = String(value);
+    el.appendChild(sp);
+    bar.appendChild(el);
+  });
+}
+
+function renderAuditEvents(events) {
+  const container = document.getElementById('audit-container');
+  container.textContent = '';
+
+  if (!events.length) {
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'Sin eventos.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.className = 'audit-event-row header';
+  ['Fecha', 'Tipo', 'Usuario', 'Latencia', 'Estado'].forEach(h => {
+    const cell = document.createElement('div');
+    cell.textContent = h;
+    header.appendChild(cell);
+  });
+  container.appendChild(header);
+
+  events.forEach(ev => {
+    const row = document.createElement('div');
+    row.className = 'audit-event-row';
+
+    const date = ev.created_at ? ev.created_at.slice(0, 10) : '—';
+    const latency = ev.latency_ms != null ? Math.round(ev.latency_ms) + ' ms' : '—';
+
+    [date, ev.event_type || '—', ev.user_id || '—', latency, ev.status || '—'].forEach((val, i) => {
+      const cell = document.createElement('div');
+      cell.textContent = val;
+      if (i === 4) {
+        cell.className = ev.status === 'error' ? 'audit-status-error' : 'audit-status-ok';
+      }
+      row.appendChild(cell);
+    });
+    container.appendChild(row);
+  });
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
